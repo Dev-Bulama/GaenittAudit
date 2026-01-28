@@ -77,6 +77,16 @@ class BRST_Admin {
             array($this, 'render_templates')
         );
 
+        // Questions submenu
+        add_submenu_page(
+            'brst-dashboard',
+            __('Questions', 'brst-engine'),
+            __('Questions', 'brst-engine'),
+            'manage_options',
+            'brst-questions',
+            array($this, 'render_questions')
+        );
+
         // Settings submenu
         add_submenu_page(
             'brst-dashboard',
@@ -317,6 +327,14 @@ class BRST_Admin {
     public function render_documentation() {
         $documentation = new BRST_Admin_Documentation();
         $documentation->render();
+    }
+
+    /**
+     * Render questions page
+     */
+    public function render_questions() {
+        $questions_handler = new BRST_Admin_Questions();
+        $questions_handler->render();
     }
 
     /**

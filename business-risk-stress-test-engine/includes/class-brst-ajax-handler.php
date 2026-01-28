@@ -198,6 +198,7 @@ class BRST_Ajax_Handler {
         }
 
         $submission_id = intval($_POST['submission_id'] ?? 0);
+        $gateway = sanitize_text_field($_POST['gateway'] ?? '');
 
         if (!$submission_id) {
             wp_send_json_error(array('message' => __('Invalid submission.', 'brst-engine')));
@@ -208,12 +209,23 @@ class BRST_Ajax_Handler {
             wp_send_json_error(array('message' => __('You must accept the Terms & Conditions and Privacy Policy.', 'brst-engine')));
         }
 
-        // Initialize payment
+        // Get user email from the submission for payment gateways
+        global $wpdb;
+        $submissions_table = BRST_Database::get_table_name('submissions');
+        $submission = $wpdb->get_row($wpdb->prepare("SELECT user_email, user_name FROM $submissions_table WHERE id = %d", $submission_id));
+        $user_email = $submission ? $submission->user_email : '';
+
+        // Initialize payment with selected gateway
         $payment_engine = new BRST_Payment_Engine();
-        $result = $payment_engine->initialize_payment($submission_id);
+        $result = $payment_engine->initialize_payment($submission_id, $gateway ?: null);
 
         if (is_wp_error($result)) {
             wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        // Attach user email to the response for Paystack
+        if (!empty($result['data']) && !empty($user_email)) {
+            $result['data']['email'] = $user_email;
         }
 
         // Log activity

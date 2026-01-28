@@ -117,6 +117,7 @@ final class Business_Risk_Stress_Test_Engine {
             require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-templates.php';
             require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-form-builder.php';
             require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-documentation.php';
+            require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-questions.php';
         }
     }
 

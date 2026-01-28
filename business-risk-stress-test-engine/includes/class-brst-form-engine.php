@@ -118,9 +118,22 @@ class BRST_Form_Engine {
     }
 
     /**
-     * Get all 21 questions
+     * Get all 21 questions (custom or default)
      */
     public function get_questions() {
+        // Check for custom questions saved from admin
+        $custom = get_option('brst_custom_questions');
+        if (!empty($custom) && is_array($custom) && count($custom) === 21) {
+            return $custom;
+        }
+
+        return $this->get_default_questions();
+    }
+
+    /**
+     * Get default 21 questions
+     */
+    private function get_default_questions() {
         return array(
             // Cash-Tight Operator (Q1-Q4)
             array(
@@ -246,7 +259,16 @@ class BRST_Form_Engine {
      */
     private function get_question_options($q_num) {
         if ($q_num === 21) {
-            // Q21 has different options for personalization
+            // Q21 has different options for personalization - check for custom options
+            $custom_q21 = get_option('brst_q21_options');
+            if (!empty($custom_q21) && is_array($custom_q21)) {
+                $options = array();
+                foreach ($custom_q21 as $key => $label) {
+                    $options[] = array('value' => $key, 'label' => $label);
+                }
+                return $options;
+            }
+
             return array(
                 array('value' => 'a', 'label' => 'Sales and revenue growth'),
                 array('value' => 'b', 'label' => 'Cost reduction and efficiency'),
@@ -256,7 +278,16 @@ class BRST_Form_Engine {
             );
         }
 
-        // Standard scoring options for Q1-Q20
+        // Standard scoring options for Q1-Q20 - check for custom labels
+        $custom_labels = get_option('brst_answer_labels');
+        if (!empty($custom_labels) && is_array($custom_labels)) {
+            return array(
+                array('value' => 'yes', 'label' => $custom_labels['yes'] ?? 'Yes', 'score' => 0),
+                array('value' => 'maybe', 'label' => $custom_labels['maybe'] ?? 'Maybe', 'score' => 2),
+                array('value' => 'no', 'label' => $custom_labels['no'] ?? 'No', 'score' => 3),
+            );
+        }
+
         return array(
             array('value' => 'yes', 'label' => 'Yes', 'score' => 0),
             array('value' => 'maybe', 'label' => 'Maybe', 'score' => 2),

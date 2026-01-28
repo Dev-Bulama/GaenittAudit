@@ -307,6 +307,7 @@
 
             var handler = PaystackPop.setup({
                 key: data.public_key,
+                email: data.email || '',
                 ref: data.reference,
                 amount: data.amount,
                 currency: data.currency,
