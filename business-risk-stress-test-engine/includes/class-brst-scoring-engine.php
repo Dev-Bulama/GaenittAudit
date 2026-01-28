@@ -11,6 +11,7 @@ if (!defined('ABSPATH')) {
 
 /**
  * Scoring Engine class for calculating and processing scores
+ * Supports dynamic question counts per category
  */
 class BRST_Scoring_Engine {
 
@@ -27,50 +28,61 @@ class BRST_Scoring_Engine {
     const MAX_SCORE_PER_QUESTION = 3;
 
     /**
-     * Questions per category
+     * Category definitions - built dynamically from questions
      */
-    const QUESTIONS_PER_CATEGORY = 4;
+    private $categories = array();
 
     /**
-     * Maximum score per category
+     * Category display names
      */
-    const MAX_CATEGORY_SCORE = 12; // 4 questions × 3 points
-
-    /**
-     * Category definitions
-     */
-    private $categories = array(
-        'cash_tight' => array(
-            'name' => 'Cash-Tight Operator',
-            'questions' => array(1, 2, 3, 4),
-        ),
-        'revenue_concentrated' => array(
-            'name' => 'Revenue-Concentrated Builder',
-            'questions' => array(5, 6, 7, 8),
-        ),
-        'cost_locked' => array(
-            'name' => 'Cost-Locked Business',
-            'questions' => array(9, 10, 11, 12),
-        ),
-        'owner_dependent' => array(
-            'name' => 'Owner-Dependent Engine',
-            'questions' => array(13, 14, 15, 16),
-        ),
-        'externally_exposed' => array(
-            'name' => 'Externally Exposed Builder',
-            'questions' => array(17, 18, 19, 20),
-        ),
+    private $category_names = array(
+        'cash_tight' => 'Cash-Tight Operator',
+        'revenue_concentrated' => 'Revenue-Concentrated Builder',
+        'cost_locked' => 'Cost-Locked Business',
+        'owner_dependent' => 'Owner-Dependent Engine',
+        'externally_exposed' => 'Externally Exposed Builder',
     );
 
     /**
      * Constructor
      */
     public function __construct() {
+        $this->build_categories_from_questions();
+
         /**
          * Filter: brst_scoring_categories
          * Allows modification of category definitions
          */
         $this->categories = apply_filters('brst_scoring_categories', $this->categories);
+    }
+
+    /**
+     * Build category definitions dynamically from the questions list
+     */
+    private function build_categories_from_questions() {
+        $form_engine = new BRST_Form_Engine();
+        $questions = $form_engine->get_questions();
+
+        $this->categories = array();
+
+        foreach ($questions as $index => $question) {
+            $q_num = $index + 1;
+            $category = $question['category'];
+
+            // Skip non-scored questions (personalization)
+            if (empty($question['scored'])) {
+                continue;
+            }
+
+            if (!isset($this->categories[$category])) {
+                $this->categories[$category] = array(
+                    'name' => $this->category_names[$category] ?? ucwords(str_replace('_', ' ', $category)),
+                    'questions' => array(),
+                );
+            }
+
+            $this->categories[$category]['questions'][] = $q_num;
+        }
     }
 
     /**
@@ -106,42 +118,58 @@ class BRST_Scoring_Engine {
      * @return array Comprehensive scoring data
      */
     public function calculate_scores($responses) {
+        $form_engine = new BRST_Form_Engine();
+        $questions = $form_engine->get_questions();
+
         $individual_scores = array();
         $category_scores = array();
         $total_score = 0;
         $max_possible_score = 0;
+        $q21_response = '';
+        $unscored_responses = array();
 
-        // Initialize category scores
+        // Initialize category scores dynamically
         foreach ($this->categories as $key => $category) {
+            $question_count = count($category['questions']);
             $category_scores[$key] = array(
                 'name' => $category['name'],
                 'score' => 0,
-                'max_score' => self::MAX_CATEGORY_SCORE,
+                'max_score' => $question_count * self::MAX_SCORE_PER_QUESTION,
                 'percentage' => 0,
                 'questions' => array(),
             );
         }
 
-        // Calculate individual question scores (Q1-Q20 only)
-        for ($i = 1; $i <= 20; $i++) {
-            $question_key = "q{$i}";
+        // Calculate scores for all questions
+        foreach ($questions as $index => $question) {
+            $q_num = $index + 1;
+            $question_key = "q{$q_num}";
             $answer = $responses[$question_key] ?? '';
-            $score = $this->get_answer_score($answer);
 
-            $individual_scores[$question_key] = array(
-                'answer' => $answer,
-                'score' => $score,
-            );
+            if (!empty($question['scored'])) {
+                // Scored question
+                $score = $this->get_answer_score($answer);
 
-            // Add to category
-            $category_key = $this->get_category_for_question($i);
-            if ($category_key) {
-                $category_scores[$category_key]['score'] += $score;
-                $category_scores[$category_key]['questions'][$question_key] = $score;
+                $individual_scores[$question_key] = array(
+                    'answer' => $answer,
+                    'score' => $score,
+                );
+
+                // Add to category
+                $category_key = $question['category'];
+                if (isset($category_scores[$category_key])) {
+                    $category_scores[$category_key]['score'] += $score;
+                    $category_scores[$category_key]['questions'][$question_key] = $score;
+                }
+
+                $total_score += $score;
+                $max_possible_score += self::MAX_SCORE_PER_QUESTION;
+            } else {
+                // Unscored question (personalization)
+                $unscored_responses[$question_key] = $answer;
+                // Keep backward compatibility - the last unscored question is q21_response
+                $q21_response = $answer;
             }
-
-            $total_score += $score;
-            $max_possible_score += self::MAX_SCORE_PER_QUESTION;
         }
 
         // Calculate percentages for each category
@@ -155,9 +183,6 @@ class BRST_Scoring_Engine {
         // Calculate overall percentage
         $overall_percentage = $this->calculate_percentage($total_score, $max_possible_score);
 
-        // Store Q21 separately (not scored)
-        $q21_response = $responses['q21'] ?? '';
-
         $result = array(
             'individual_scores' => $individual_scores,
             'category_scores' => $category_scores,
@@ -165,6 +190,7 @@ class BRST_Scoring_Engine {
             'max_possible_score' => $max_possible_score,
             'overall_percentage' => $overall_percentage,
             'q21_response' => $q21_response,
+            'unscored_responses' => $unscored_responses,
         );
 
         /**
@@ -238,37 +264,38 @@ class BRST_Scoring_Engine {
     }
 
     /**
-     * Validate responses format
+     * Validate responses format - dynamic based on actual questions
      */
     public function validate_responses($responses) {
         $errors = array();
         $valid_answers = array('yes', 'maybe', 'no');
 
-        // Validate Q1-Q20
-        for ($i = 1; $i <= 20; $i++) {
-            $question_key = "q{$i}";
+        $form_engine = new BRST_Form_Engine();
+        $questions = $form_engine->get_questions();
+
+        foreach ($questions as $index => $question) {
+            $q_num = $index + 1;
+            $question_key = "q{$q_num}";
 
             if (!isset($responses[$question_key]) || empty($responses[$question_key])) {
                 $errors[$question_key] = sprintf(
                     __('Question %d is required.', 'brst-engine'),
-                    $i
+                    $q_num
                 );
                 continue;
             }
 
-            $answer = strtolower(trim($responses[$question_key]));
-            if (!in_array($answer, $valid_answers)) {
-                $errors[$question_key] = sprintf(
-                    __('Invalid answer for question %d.', 'brst-engine'),
-                    $i
-                );
+            if (!empty($question['scored'])) {
+                // Scored questions must be yes/maybe/no
+                $answer = strtolower(trim($responses[$question_key]));
+                if (!in_array($answer, $valid_answers)) {
+                    $errors[$question_key] = sprintf(
+                        __('Invalid answer for question %d.', 'brst-engine'),
+                        $q_num
+                    );
+                }
             }
-        }
-
-        // Validate Q21
-        $valid_q21 = array('a', 'b', 'c', 'd', 'e');
-        if (!isset($responses['q21']) || !in_array($responses['q21'], $valid_q21)) {
-            $errors['q21'] = __('Please select your current primary focus area.', 'brst-engine');
+            // Unscored questions accept any non-empty value
         }
 
         return $errors;
@@ -321,16 +348,18 @@ class BRST_Scoring_Engine {
 
         foreach ($individual_scores as $q_key => $data) {
             $q_num = intval(str_replace('q', '', $q_key));
-            if ($q_num > 0 && $q_num <= 20 && isset($questions[$q_num - 1])) {
+            if ($q_num > 0 && isset($questions[$q_num - 1])) {
                 $question = $questions[$q_num - 1];
-                $breakdown[$q_key] = array(
-                    'question_number' => $q_num,
-                    'question_text' => $question['text'],
-                    'category' => $question['category'],
-                    'answer' => $data['answer'],
-                    'score' => $data['score'],
-                    'max_score' => self::MAX_SCORE_PER_QUESTION,
-                );
+                if (!empty($question['scored'])) {
+                    $breakdown[$q_key] = array(
+                        'question_number' => $q_num,
+                        'question_text' => $question['text'],
+                        'category' => $question['category'],
+                        'answer' => $data['answer'],
+                        'score' => $data['score'],
+                        'max_score' => self::MAX_SCORE_PER_QUESTION,
+                    );
+                }
             }
         }
 

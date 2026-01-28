@@ -54,46 +54,59 @@ class BRST_Form_Engine {
         $questions = $this->get_questions();
         $steps = array();
 
-        // Step 0: User Information - get fields from form builder or use defaults
-        $user_fields = $this->get_user_info_fields();
-        $steps[] = array(
-            'id' => 'step_0',
-            'title' => get_option('brst_step_user_info_title', __('Your Information', 'brst-engine')),
-            'fields' => $user_fields,
+        // Group questions by category dynamically
+        $category_groups = array();
+        $category_names = array(
+            'cash_tight' => __('Cash Flow Assessment', 'brst-engine'),
+            'revenue_concentrated' => __('Revenue Diversity', 'brst-engine'),
+            'cost_locked' => __('Cost Structure', 'brst-engine'),
+            'owner_dependent' => __('Business Dependency', 'brst-engine'),
+            'externally_exposed' => __('External Exposure', 'brst-engine'),
+            'personalization' => __('Your Focus Area', 'brst-engine'),
         );
 
-        // Create multi-step form - 4 questions per step for Q1-Q20, plus Q21
-        $step_count = 0;
-        $fields = array();
-
         foreach ($questions as $index => $question) {
-            $q_num = $index + 1;
-
-            $field = array(
-                'id' => "q{$q_num}",
-                'type' => 'radio',
-                'label' => $question['text'],
-                'required' => true,
-                'options' => $this->get_question_options($q_num),
-                'category' => $question['category'],
-                'scored' => $question['scored'],
+            $cat = $question['category'];
+            if (!isset($category_groups[$cat])) {
+                $category_groups[$cat] = array();
+            }
+            $category_groups[$cat][] = array(
+                'index' => $index,
+                'question' => $question,
             );
+        }
 
-            $fields[] = $field;
+        // Create one step per category
+        $step_count = 0;
+        foreach ($category_groups as $category_key => $cat_questions) {
+            $fields = array();
+            foreach ($cat_questions as $entry) {
+                $q_num = $entry['index'] + 1;
+                $question = $entry['question'];
 
-            // Every 4 questions, create a new step (to match category structure)
-            if ($q_num % 4 === 0 || $q_num === 21) {
-                $step_count++;
-                $step_title = $this->get_step_title($step_count);
-
-                $steps[] = array(
-                    'id' => "step_{$step_count}",
-                    'title' => $step_title,
-                    'fields' => $fields,
+                $field = array(
+                    'id' => "q{$q_num}",
+                    'type' => 'radio',
+                    'label' => $question['text'],
+                    'required' => true,
+                    'options' => $this->get_question_options($q_num, $question),
+                    'category' => $question['category'],
+                    'scored' => $question['scored'],
                 );
 
-                $fields = array();
+                $fields[] = $field;
             }
+
+            $step_title = $category_names[$category_key]
+                ?? ucwords(str_replace('_', ' ', $category_key));
+
+            $steps[] = array(
+                'id' => "step_{$step_count}",
+                'title' => $step_title,
+                'fields' => $fields,
+            );
+
+            $step_count++;
         }
 
         // Get customizable settings from options
@@ -118,12 +131,12 @@ class BRST_Form_Engine {
     }
 
     /**
-     * Get all 21 questions (custom or default)
+     * Get all questions (custom or default)
      */
     public function get_questions() {
         // Check for custom questions saved from admin
         $custom = get_option('brst_custom_questions');
-        if (!empty($custom) && is_array($custom) && count($custom) === 21) {
+        if (!empty($custom) && is_array($custom) && count($custom) >= 1) {
             return $custom;
         }
 
@@ -255,11 +268,14 @@ class BRST_Form_Engine {
     }
 
     /**
-     * Get question options based on question number
+     * Get question options based on question data
      */
-    private function get_question_options($q_num) {
-        if ($q_num === 21) {
-            // Q21 has different options for personalization - check for custom options
+    private function get_question_options($q_num, $question = null) {
+        // Determine if this is an unscored/personalization question
+        $is_unscored = ($question && empty($question['scored']));
+
+        if ($is_unscored) {
+            // Personalization question - check for custom options
             $custom_q21 = get_option('brst_q21_options');
             if (!empty($custom_q21) && is_array($custom_q21)) {
                 $options = array();
@@ -278,7 +294,7 @@ class BRST_Form_Engine {
             );
         }
 
-        // Standard scoring options for Q1-Q20 - check for custom labels
+        // Standard scoring options - check for custom labels
         $custom_labels = get_option('brst_answer_labels');
         if (!empty($custom_labels) && is_array($custom_labels)) {
             return array(
@@ -296,64 +312,10 @@ class BRST_Form_Engine {
     }
 
     /**
-     * Get user information fields from form builder or defaults
+     * Get the total number of questions
      */
-    private function get_user_info_fields() {
-        // Get custom fields from form builder
-        $custom_fields = get_option('brst_custom_user_fields');
-
-        if (!empty($custom_fields) && is_array($custom_fields)) {
-            // Add scored => false to all custom fields
-            return array_map(function($field) {
-                $field['scored'] = false;
-                return $field;
-            }, $custom_fields);
-        }
-
-        // Return default fields
-        return array(
-            array(
-                'id' => 'user_name',
-                'type' => 'text',
-                'label' => __('Your Full Name', 'brst-engine'),
-                'placeholder' => __('Enter your name', 'brst-engine'),
-                'required' => true,
-                'scored' => false,
-            ),
-            array(
-                'id' => 'user_email',
-                'type' => 'email',
-                'label' => __('Email Address', 'brst-engine'),
-                'placeholder' => __('Enter your email', 'brst-engine'),
-                'description' => __('Your report will be sent to this email address.', 'brst-engine'),
-                'required' => true,
-                'scored' => false,
-            ),
-            array(
-                'id' => 'company_name',
-                'type' => 'text',
-                'label' => __('Company/Business Name', 'brst-engine'),
-                'placeholder' => __('Enter your business name (optional)', 'brst-engine'),
-                'required' => false,
-                'scored' => false,
-            ),
-        );
-    }
-
-    /**
-     * Get step title based on step number
-     */
-    private function get_step_title($step_num) {
-        $titles = array(
-            1 => __('Cash Flow Assessment', 'brst-engine'),
-            2 => __('Revenue Diversity', 'brst-engine'),
-            3 => __('Cost Structure', 'brst-engine'),
-            4 => __('Business Dependency', 'brst-engine'),
-            5 => __('External Exposure', 'brst-engine'),
-            6 => __('Your Focus Area', 'brst-engine'),
-        );
-
-        return $titles[$step_num] ?? sprintf(__('Step %d', 'brst-engine'), $step_num);
+    public function get_question_count() {
+        return count($this->get_questions());
     }
 
     /**

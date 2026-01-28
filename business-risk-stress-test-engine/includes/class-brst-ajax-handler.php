@@ -61,22 +61,11 @@ class BRST_Ajax_Handler {
         $session_id = sanitize_text_field($_POST['session_id'] ?? '');
         $responses = array();
 
-        // Get user info (name, email, company)
-        $user_name = sanitize_text_field($_POST['user_name'] ?? '');
-        $user_email = sanitize_email($_POST['user_email'] ?? '');
-        $company_name = sanitize_text_field($_POST['company_name'] ?? '');
+        // Collect responses dynamically based on actual question count
+        $form_engine = new BRST_Form_Engine();
+        $question_count = $form_engine->get_question_count();
 
-        // Validate user info
-        if (empty($user_name)) {
-            wp_send_json_error(array('message' => __('Please enter your name.', 'brst-engine')));
-        }
-
-        if (empty($user_email) || !is_email($user_email)) {
-            wp_send_json_error(array('message' => __('Please enter a valid email address.', 'brst-engine')));
-        }
-
-        // Collect responses for Q1-Q21
-        for ($i = 1; $i <= 21; $i++) {
+        for ($i = 1; $i <= $question_count; $i++) {
             $key = "q{$i}";
             if (isset($_POST[$key])) {
                 $responses[$key] = sanitize_text_field($_POST[$key]);
@@ -112,13 +101,13 @@ class BRST_Ajax_Handler {
             $profile_analysis['secondary_profile']['key']
         );
 
-        // Save submission with user info
+        // Save submission (no user info at this stage - collected after payment)
         $submission_id = $this->save_submission(array(
             'form_id' => $form_id,
             'session_id' => $session_id,
-            'user_name' => $user_name,
-            'user_email' => $user_email,
-            'company_name' => $company_name,
+            'user_name' => '',
+            'user_email' => '',
+            'company_name' => '',
             'responses' => $responses,
             'scores_data' => $scores_data,
             'profile_analysis' => $profile_analysis,
@@ -128,10 +117,6 @@ class BRST_Ajax_Handler {
         if (!$submission_id) {
             wp_send_json_error(array('message' => __('Failed to save your responses. Please try again.', 'brst-engine')));
         }
-
-        // Save email capture immediately (so we have it for reports)
-        $gdpr = new BRST_GDPR();
-        $gdpr->save_email_capture($submission_id, $user_email, false, $user_name);
 
         // Generate mini report
         $mini_report_engine = new BRST_Mini_Report();
@@ -152,8 +137,6 @@ class BRST_Ajax_Handler {
 
         wp_send_json_success(array(
             'submission_id' => $submission_id,
-            'user_name' => $user_name,
-            'user_email' => $user_email,
             'mini_report' => $mini_report,
             'mini_report_html' => $mini_report_html,
             'profile' => $profile_analysis['primary_profile'],
@@ -199,21 +182,21 @@ class BRST_Ajax_Handler {
 
         $submission_id = intval($_POST['submission_id'] ?? 0);
         $gateway = sanitize_text_field($_POST['gateway'] ?? '');
+        $payment_email = sanitize_email($_POST['payment_email'] ?? '');
 
         if (!$submission_id) {
             wp_send_json_error(array('message' => __('Invalid submission.', 'brst-engine')));
+        }
+
+        // Validate email for payment (required for Paystack)
+        if (empty($payment_email) || !is_email($payment_email)) {
+            wp_send_json_error(array('message' => __('Please enter a valid email address for your payment receipt.', 'brst-engine')));
         }
 
         // Check consent checkboxes
         if (empty($_POST['accept_terms']) || empty($_POST['accept_privacy'])) {
             wp_send_json_error(array('message' => __('You must accept the Terms & Conditions and Privacy Policy.', 'brst-engine')));
         }
-
-        // Get user email from the submission for payment gateways
-        global $wpdb;
-        $submissions_table = BRST_Database::get_table_name('submissions');
-        $submission = $wpdb->get_row($wpdb->prepare("SELECT user_email, user_name FROM $submissions_table WHERE id = %d", $submission_id));
-        $user_email = $submission ? $submission->user_email : '';
 
         // Initialize payment with selected gateway
         $payment_engine = new BRST_Payment_Engine();
@@ -223,9 +206,9 @@ class BRST_Ajax_Handler {
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
-        // Attach user email to the response for Paystack
-        if (!empty($result['data']) && !empty($user_email)) {
-            $result['data']['email'] = $user_email;
+        // Attach email to the response for Paystack and other gateways
+        if (!empty($result['data'])) {
+            $result['data']['email'] = $payment_email;
         }
 
         // Log activity
@@ -284,7 +267,7 @@ class BRST_Ajax_Handler {
     }
 
     /**
-     * Handle submit email
+     * Handle submit email (post-payment report delivery)
      */
     public function handle_submit_email() {
         // Verify nonce
@@ -295,6 +278,8 @@ class BRST_Ajax_Handler {
         $submission_id = intval($_POST['submission_id'] ?? 0);
         $payment_id = intval($_POST['payment_id'] ?? 0);
         $email = sanitize_email($_POST['email'] ?? '');
+        $user_name = sanitize_text_field($_POST['user_name'] ?? '');
+        $company_name = sanitize_text_field($_POST['company_name'] ?? '');
         $marketing_consent = !empty($_POST['marketing_consent']);
 
         if (!$submission_id) {
@@ -305,9 +290,22 @@ class BRST_Ajax_Handler {
             wp_send_json_error(array('message' => __('Please enter a valid email address.', 'brst-engine')));
         }
 
-        // Save email capture
+        // Update the submission record with user info
+        global $wpdb;
+        $submissions_table = BRST_Database::get_table_name('submissions');
+        $wpdb->update(
+            $submissions_table,
+            array(
+                'user_name' => $user_name,
+                'user_email' => $email,
+                'company_name' => $company_name,
+            ),
+            array('id' => $submission_id)
+        );
+
+        // Save email capture with GDPR consent
         $gdpr = new BRST_GDPR();
-        $gdpr->save_email_capture($submission_id, $email, $marketing_consent);
+        $gdpr->save_email_capture($submission_id, $email, $marketing_consent, $user_name);
 
         // Generate report
         $pdf_engine = new BRST_PDF_Engine();

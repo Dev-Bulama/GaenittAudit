@@ -224,21 +224,29 @@
         initPaymentForm: function() {
             var self = this;
 
-            // Consent checkbox handling
-            $(document).on('change', '#brst-payment-form input[type="checkbox"]', function() {
-                var form = $(this).closest('form');
+            // Check if pay button should be enabled (email + consent)
+            var checkPaymentReady = function() {
+                var form = $('#brst-payment-form');
+                if (!form.length) return;
+
                 var termsChecked = form.find('input[name="accept_terms"]').is(':checked');
                 var privacyChecked = form.find('input[name="accept_privacy"]').is(':checked');
+                var emailVal = form.find('input[name="payment_email"]').val();
+                var emailValid = emailVal && BRST.isValidEmail(emailVal);
                 var payButton = form.find('.brst-pay-button');
-                var warning = form.find('.brst-consent-warning');
 
-                if (termsChecked && privacyChecked) {
+                if (termsChecked && privacyChecked && emailValid) {
                     payButton.prop('disabled', false);
-                    warning.hide();
                 } else {
                     payButton.prop('disabled', true);
                 }
-            });
+            };
+
+            // Consent checkbox handling
+            $(document).on('change', '#brst-payment-form input[type="checkbox"]', checkPaymentReady);
+
+            // Email field handling
+            $(document).on('input', '#brst-payment-form input[name="payment_email"]', checkPaymentReady);
 
             // Gateway selection
             $(document).on('change', '#brst-payment-form input[name="gateway"]', function() {
@@ -261,7 +269,17 @@
             var self = this;
             var submissionId = form.find('input[name="submission_id"]').val();
             var gateway = form.find('input[name="gateway"]:checked').val() || form.find('input[name="gateway"]').val();
+            var paymentEmail = form.find('input[name="payment_email"]').val();
             var formData = form.serialize();
+
+            // Validate email
+            if (!paymentEmail || !this.isValidEmail(paymentEmail)) {
+                alert('Please enter a valid email address.');
+                return;
+            }
+
+            // Store the payment email for later use in email capture
+            this.paymentEmail = paymentEmail;
 
             form.find('.brst-pay-button').prop('disabled', true).text(brst_ajax.strings.payment_processing);
 
@@ -448,30 +466,50 @@
         },
 
         /**
-         * Show email capture form
+         * Show email capture form (after successful payment)
          */
         showEmailCapture: function(submissionId, paymentRef) {
             var container = $('.brst-payment-container').parent();
+            var prefillEmail = this.paymentEmail || '';
 
             var html = '<div class="brst-email-capture-container">' +
                 '<div class="brst-email-capture-header">' +
+                '<div class="brst-success-icon">&#10003;</div>' +
                 '<h2>Payment Successful!</h2>' +
-                '<p>Where should we send your report?</p>' +
+                '<p>Where do you want your full report delivered?</p>' +
                 '</div>' +
                 '<form id="brst-email-capture-form" class="brst-email-capture-form">' +
                 '<input type="hidden" name="submission_id" value="' + submissionId + '">' +
                 '<input type="hidden" name="payment_ref" value="' + paymentRef + '">' +
+
                 '<div class="brst-field">' +
-                '<label for="brst-email">Email Address <span class="brst-required">*</span></label>' +
-                '<input type="email" id="brst-email" name="email" required placeholder="your@email.com">' +
+                '<label for="brst-capture-email">Email Address <span class="brst-required">*</span></label>' +
+                '<input type="email" id="brst-capture-email" name="email" required placeholder="your@email.com" value="' + prefillEmail + '">' +
                 '</div>' +
+
+                '<div class="brst-field">' +
+                '<label for="brst-capture-name">Your Name</label>' +
+                '<input type="text" id="brst-capture-name" name="user_name" class="brst-input" placeholder="Enter your name (for personalizing your report)">' +
+                '</div>' +
+
+                '<div class="brst-field">' +
+                '<label for="brst-capture-company">Company / Business Name</label>' +
+                '<input type="text" id="brst-capture-company" name="company_name" class="brst-input" placeholder="Enter your business name (optional)">' +
+                '</div>' +
+
+                '<div class="brst-privacy-note">' +
+                '<p>Your details will be used solely to personalize and deliver your report. ' +
+                'We take your privacy seriously and will never share your information with third parties.</p>' +
+                '</div>' +
+
                 '<div class="brst-field brst-consent-field">' +
                 '<label class="brst-checkbox-single">' +
                 '<input type="checkbox" name="marketing_consent" value="1">' +
-                '<span>I consent to receive marketing emails (optional)</span>' +
+                '<span>Yes, I would like to receive occasional insights, tips, and updates about business risk management. You can unsubscribe at any time.</span>' +
                 '</label>' +
                 '</div>' +
-                '<button type="submit" class="brst-btn brst-btn-primary">Send My Report</button>' +
+
+                '<button type="submit" class="brst-btn brst-btn-primary brst-btn-full">Send My Report</button>' +
                 '<div class="brst-email-capture-messages"></div>' +
                 '</form>' +
                 '</div>';
@@ -517,7 +555,7 @@
                             '<div class="brst-feedback-thank-you">' +
                             '<div class="brst-thank-you-icon">&#10003;</div>' +
                             '<h2>Report Sent!</h2>' +
-                            '<p>Your report has been sent to ' + response.data.email + '</p>' +
+                            '<p>Your full report has been sent to <strong>' + response.data.email + '</strong></p>' +
                             '<p>Please check your inbox (and spam folder).</p>' +
                             '</div>'
                         );

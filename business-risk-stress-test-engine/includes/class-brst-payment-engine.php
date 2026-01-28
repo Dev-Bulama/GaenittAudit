@@ -794,9 +794,9 @@ class BRST_Payment_Engine {
             </div>
 
             <div class="brst-payment-summary">
-                <h3><?php esc_html_e('What\'s Included', 'brst-engine'); ?></h3>
+                <h3><?php esc_html_e("What's Included", 'brst-engine'); ?></h3>
                 <ul>
-                    <li><?php esc_html_e('Complete risk analysis across all 5 business categories', 'brst-engine'); ?></li>
+                    <li><?php esc_html_e('Complete risk analysis across all business categories', 'brst-engine'); ?></li>
                     <li><?php esc_html_e('Personalized recommendations based on your profile', 'brst-engine'); ?></li>
                     <li><?php esc_html_e('Actionable steps to address identified risks', 'brst-engine'); ?></li>
                     <li><?php esc_html_e('PDF report delivered to your email', 'brst-engine'); ?></li>
@@ -811,6 +811,16 @@ class BRST_Payment_Engine {
             <form id="brst-payment-form" class="brst-payment-form">
                 <?php wp_nonce_field('brst_payment', 'brst_payment_nonce'); ?>
                 <input type="hidden" name="submission_id" value="<?php echo esc_attr($submission_id); ?>">
+
+                <div class="brst-payment-email-field">
+                    <label for="brst-payment-email" class="brst-field-label">
+                        <?php esc_html_e('Email for payment receipt', 'brst-engine'); ?>
+                        <span class="brst-required">*</span>
+                    </label>
+                    <input type="email" id="brst-payment-email" name="payment_email" class="brst-input brst-email-input"
+                           placeholder="<?php esc_attr_e('your@email.com', 'brst-engine'); ?>" required>
+                    <p class="brst-field-description"><?php esc_html_e('Required for processing your payment.', 'brst-engine'); ?></p>
+                </div>
 
                 <?php if (count($available_gateways) > 1): ?>
                 <div class="brst-gateway-selection">
@@ -879,8 +889,8 @@ class BRST_Payment_Engine {
             </form>
 
             <div class="brst-payment-secure">
-                <span class="brst-secure-icon">🔒</span>
-                <span><?php esc_html_e('Secure payment', 'brst-engine'); ?></span>
+                <span class="brst-secure-icon">&#128274;</span>
+                <span><?php esc_html_e('Secure payment powered by industry-standard encryption', 'brst-engine'); ?></span>
             </div>
         </div>
         <?php
