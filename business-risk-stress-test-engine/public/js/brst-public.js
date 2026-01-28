@@ -224,6 +224,7 @@
         initPaymentForm: function() {
             var self = this;
 
+            // Consent checkbox handling
             $(document).on('change', '#brst-payment-form input[type="checkbox"]', function() {
                 var form = $(this).closest('form');
                 var termsChecked = form.find('input[name="accept_terms"]').is(':checked');
@@ -239,6 +240,14 @@
                 }
             });
 
+            // Gateway selection
+            $(document).on('change', '#brst-payment-form input[name="gateway"]', function() {
+                var form = $(this).closest('form');
+                form.find('.brst-gateway-option').removeClass('selected');
+                $(this).closest('.brst-gateway-option').addClass('selected');
+            });
+
+            // Form submission
             $(document).on('submit', '#brst-payment-form', function(e) {
                 e.preventDefault();
                 self.processPayment($(this));
@@ -251,6 +260,7 @@
         processPayment: function(form) {
             var self = this;
             var submissionId = form.find('input[name="submission_id"]').val();
+            var gateway = form.find('input[name="gateway"]:checked').val() || form.find('input[name="gateway"]').val();
             var formData = form.serialize();
 
             form.find('.brst-pay-button').prop('disabled', true).text(brst_ajax.strings.payment_processing);
@@ -267,6 +277,8 @@
                             self.openPaystack(data.data);
                         } else if (data.gateway === 'stripe') {
                             self.openStripe(data.data);
+                        } else if (data.gateway === 'paypal') {
+                            self.openPayPal(data.data);
                         }
                     } else {
                         form.find('.brst-pay-button').prop('disabled', false).text('Proceed to Payment');
@@ -285,6 +297,13 @@
          */
         openPaystack: function(data) {
             var self = this;
+
+            // Check if PaystackPop is available
+            if (typeof PaystackPop === 'undefined') {
+                alert('Paystack is not properly loaded. Please refresh the page and try again.');
+                $('#brst-payment-form .brst-pay-button').prop('disabled', false).text('Proceed to Payment');
+                return;
+            }
 
             var handler = PaystackPop.setup({
                 key: data.public_key,
@@ -308,17 +327,94 @@
         openStripe: function(data) {
             var self = this;
 
-            // This would use Stripe.js
+            // Check if Stripe is available
+            if (typeof Stripe === 'undefined') {
+                alert('Stripe is not properly loaded. Please refresh the page and try again.');
+                $('#brst-payment-form .brst-pay-button').prop('disabled', false).text('Proceed to Payment');
+                return;
+            }
+
             var stripe = Stripe(data.public_key);
 
-            stripe.confirmCardPayment(data.client_secret).then(function(result) {
-                if (result.error) {
-                    alert(result.error.message);
-                    $('#brst-payment-form .brst-pay-button').prop('disabled', false).text('Proceed to Payment');
+            // Create payment element
+            var elements = stripe.elements();
+            var cardElement = elements.create('card');
+
+            // Show Stripe modal
+            self.showStripeModal(stripe, data, cardElement);
+        },
+
+        /**
+         * Show Stripe payment modal
+         */
+        showStripeModal: function(stripe, data, cardElement) {
+            var self = this;
+
+            // Create modal HTML
+            var modalHtml = '<div class="brst-stripe-modal">' +
+                '<div class="brst-stripe-modal-content">' +
+                '<h3>Enter Card Details</h3>' +
+                '<div id="brst-card-element"></div>' +
+                '<div id="brst-card-errors" class="brst-error"></div>' +
+                '<div class="brst-stripe-buttons">' +
+                '<button type="button" class="brst-btn brst-btn-secondary brst-stripe-cancel">Cancel</button>' +
+                '<button type="button" class="brst-btn brst-btn-primary brst-stripe-pay">Pay Now</button>' +
+                '</div>' +
+                '</div>' +
+                '</div>';
+
+            $('body').append(modalHtml);
+            cardElement.mount('#brst-card-element');
+
+            // Handle card errors
+            cardElement.on('change', function(event) {
+                var displayError = document.getElementById('brst-card-errors');
+                if (event.error) {
+                    displayError.textContent = event.error.message;
                 } else {
-                    self.verifyPayment(data.reference, 'stripe');
+                    displayError.textContent = '';
                 }
             });
+
+            // Cancel button
+            $('.brst-stripe-cancel').on('click', function() {
+                $('.brst-stripe-modal').remove();
+                $('#brst-payment-form .brst-pay-button').prop('disabled', false).text('Proceed to Payment');
+            });
+
+            // Pay button
+            $('.brst-stripe-pay').on('click', function() {
+                $(this).prop('disabled', true).text('Processing...');
+
+                stripe.confirmCardPayment(data.client_secret, {
+                    payment_method: {
+                        card: cardElement
+                    }
+                }).then(function(result) {
+                    if (result.error) {
+                        $('#brst-card-errors').text(result.error.message);
+                        $('.brst-stripe-pay').prop('disabled', false).text('Pay Now');
+                    } else {
+                        $('.brst-stripe-modal').remove();
+                        self.verifyPayment(data.reference, 'stripe');
+                    }
+                });
+            });
+        },
+
+        /**
+         * Open PayPal payment
+         */
+        openPayPal: function(data) {
+            var self = this;
+
+            // For PayPal, redirect to approval URL
+            if (data.approval_url) {
+                window.location.href = data.approval_url;
+            } else {
+                alert('PayPal payment could not be initialized. Please try again.');
+                $('#brst-payment-form .brst-pay-button').prop('disabled', false).text('Proceed to Payment');
+            }
         },
 
         /**

@@ -201,6 +201,7 @@ final class Business_Risk_Stress_Test_Engine {
      * Enqueue public assets
      */
     public function enqueue_public_assets() {
+        // Main styles
         wp_enqueue_style(
             'brst-public',
             BRST_PLUGIN_URL . 'public/css/brst-public.css',
@@ -208,6 +209,51 @@ final class Business_Risk_Stress_Test_Engine {
             BRST_VERSION
         );
 
+        // Load custom form styles if set
+        $custom_styles = $this->get_custom_form_styles();
+        if (!empty($custom_styles)) {
+            wp_add_inline_style('brst-public', $custom_styles);
+        }
+
+        // Payment gateway scripts - load based on enabled gateways
+        // Paystack
+        if (get_option('brst_paystack_enabled') && get_option('brst_paystack_public_key')) {
+            wp_enqueue_script(
+                'paystack',
+                'https://js.paystack.co/v1/inline.js',
+                array(),
+                null,
+                true
+            );
+        }
+
+        // Stripe
+        if (get_option('brst_stripe_enabled') && get_option('brst_stripe_public_key')) {
+            wp_enqueue_script(
+                'stripe',
+                'https://js.stripe.com/v3/',
+                array(),
+                null,
+                true
+            );
+        }
+
+        // PayPal
+        if (get_option('brst_paypal_enabled') && get_option('brst_paypal_client_id')) {
+            $paypal_client_id = get_option('brst_paypal_client_id');
+            $paypal_currency = get_option('brst_payment_currency', 'USD');
+            $paypal_sandbox = get_option('brst_paypal_sandbox', true);
+
+            wp_enqueue_script(
+                'paypal',
+                'https://www.paypal.com/sdk/js?client-id=' . esc_attr($paypal_client_id) . '&currency=' . esc_attr($paypal_currency),
+                array(),
+                null,
+                true
+            );
+        }
+
+        // Main public JS
         wp_enqueue_script(
             'brst-public',
             BRST_PLUGIN_URL . 'public/js/brst-public.js',
@@ -219,6 +265,12 @@ final class Business_Risk_Stress_Test_Engine {
         wp_localize_script('brst-public', 'brst_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('brst_nonce'),
+            'gateways' => array(
+                'paystack_enabled' => (bool) get_option('brst_paystack_enabled'),
+                'stripe_enabled' => (bool) get_option('brst_stripe_enabled'),
+                'paypal_enabled' => (bool) get_option('brst_paypal_enabled'),
+                'stripe_public_key' => get_option('brst_stripe_public_key', ''),
+            ),
             'strings' => array(
                 'loading' => __('Loading...', 'brst-engine'),
                 'error' => __('An error occurred. Please try again.', 'brst-engine'),
@@ -230,6 +282,36 @@ final class Business_Risk_Stress_Test_Engine {
                 'consent_required' => __('You must accept the Terms & Conditions and Privacy Policy to continue.', 'brst-engine'),
             ),
         ));
+    }
+
+    /**
+     * Get custom form styles from settings
+     */
+    private function get_custom_form_styles() {
+        $primary_color = get_option('brst_primary_color', '#3498db');
+        $secondary_color = get_option('brst_secondary_color', '#2c3e50');
+        $button_color = get_option('brst_button_color', '#3498db');
+        $button_text_color = get_option('brst_button_text_color', '#ffffff');
+
+        $css = "
+            :root {
+                --brst-primary: {$primary_color};
+                --brst-secondary: {$secondary_color};
+            }
+            .brst-btn-primary {
+                background: {$button_color};
+                color: {$button_text_color};
+            }
+            .brst-btn-primary:hover {
+                background: {$primary_color};
+            }
+            .brst-profile-badge,
+            .brst-progress-fill {
+                background: {$primary_color};
+            }
+        ";
+
+        return $css;
     }
 
     /**
@@ -309,18 +391,41 @@ final class Business_Risk_Stress_Test_Engine {
      */
     private function set_default_options() {
         $defaults = array(
+            // Payment Gateway Keys
             'brst_paystack_public_key' => '',
             'brst_paystack_secret_key' => '',
             'brst_stripe_public_key' => '',
             'brst_stripe_secret_key' => '',
-            'brst_payment_gateway' => 'paystack',
-            'brst_payment_amount' => 5000, // Amount in smallest currency unit
+            'brst_paypal_client_id' => '',
+            'brst_paypal_secret' => '',
+            'brst_paypal_sandbox' => true,
+
+            // Gateway Enable/Disable
+            'brst_paystack_enabled' => false,
+            'brst_stripe_enabled' => false,
+            'brst_paypal_enabled' => false,
+            'brst_default_gateway' => 'paystack',
+
+            // Payment Settings
+            'brst_payment_amount' => 5000,
             'brst_payment_currency' => 'NGN',
+
+            // Page Settings
             'brst_terms_page' => '',
             'brst_privacy_page' => '',
+
+            // Email Settings
             'brst_feedback_reminder_hours' => 48,
             'brst_sender_email' => get_option('admin_email'),
             'brst_sender_name' => get_bloginfo('name'),
+
+            // Form Customization
+            'brst_primary_color' => '#3498db',
+            'brst_secondary_color' => '#2c3e50',
+            'brst_button_color' => '#3498db',
+            'brst_button_text_color' => '#ffffff',
+            'brst_form_title' => __('Business Risk Stress Test', 'brst-engine'),
+            'brst_form_description' => __('Answer the following questions to assess your business risk profile.', 'brst-engine'),
         );
 
         foreach ($defaults as $key => $value) {

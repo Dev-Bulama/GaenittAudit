@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Payment Engine class for handling payments via Paystack and Stripe
+ * Payment Engine class for handling payments via Paystack, Stripe, and PayPal
  */
 class BRST_Payment_Engine {
 
@@ -19,6 +19,7 @@ class BRST_Payment_Engine {
      */
     const GATEWAY_PAYSTACK = 'paystack';
     const GATEWAY_STRIPE = 'stripe';
+    const GATEWAY_PAYPAL = 'paypal';
 
     /**
      * Payment statuses
@@ -37,13 +38,96 @@ class BRST_Payment_Engine {
         add_action('wp_ajax_brst_paystack_webhook', array($this, 'handle_paystack_webhook'));
         add_action('wp_ajax_nopriv_brst_stripe_webhook', array($this, 'handle_stripe_webhook'));
         add_action('wp_ajax_brst_stripe_webhook', array($this, 'handle_stripe_webhook'));
+        add_action('wp_ajax_nopriv_brst_paypal_webhook', array($this, 'handle_paypal_webhook'));
+        add_action('wp_ajax_brst_paypal_webhook', array($this, 'handle_paypal_webhook'));
+
+        // PayPal return handlers
+        add_action('wp_ajax_nopriv_brst_paypal_return', array($this, 'handle_paypal_return'));
+        add_action('wp_ajax_brst_paypal_return', array($this, 'handle_paypal_return'));
     }
 
     /**
-     * Get active payment gateway
+     * Get all available gateways
      */
-    public function get_active_gateway() {
-        return get_option('brst_payment_gateway', self::GATEWAY_PAYSTACK);
+    public function get_available_gateways() {
+        $gateways = array();
+
+        // Paystack
+        if ($this->is_gateway_enabled('paystack')) {
+            $gateways['paystack'] = array(
+                'id' => 'paystack',
+                'name' => __('Paystack', 'brst-engine'),
+                'description' => __('Pay with card via Paystack', 'brst-engine'),
+                'icon' => BRST_PLUGIN_URL . 'assets/images/paystack.png',
+            );
+        }
+
+        // Stripe
+        if ($this->is_gateway_enabled('stripe')) {
+            $gateways['stripe'] = array(
+                'id' => 'stripe',
+                'name' => __('Stripe', 'brst-engine'),
+                'description' => __('Pay with card via Stripe', 'brst-engine'),
+                'icon' => BRST_PLUGIN_URL . 'assets/images/stripe.png',
+            );
+        }
+
+        // PayPal
+        if ($this->is_gateway_enabled('paypal')) {
+            $gateways['paypal'] = array(
+                'id' => 'paypal',
+                'name' => __('PayPal', 'brst-engine'),
+                'description' => __('Pay with PayPal', 'brst-engine'),
+                'icon' => BRST_PLUGIN_URL . 'assets/images/paypal.png',
+            );
+        }
+
+        /**
+         * Filter: brst_available_gateways
+         * Allows modification of available payment gateways
+         */
+        return apply_filters('brst_available_gateways', $gateways);
+    }
+
+    /**
+     * Check if a gateway is enabled
+     */
+    public function is_gateway_enabled($gateway) {
+        $enabled = get_option("brst_{$gateway}_enabled", false);
+
+        // Also check if keys are configured
+        switch ($gateway) {
+            case 'paystack':
+                $has_keys = !empty(get_option('brst_paystack_public_key')) && !empty(get_option('brst_paystack_secret_key'));
+                break;
+            case 'stripe':
+                $has_keys = !empty(get_option('brst_stripe_public_key')) && !empty(get_option('brst_stripe_secret_key'));
+                break;
+            case 'paypal':
+                $has_keys = !empty(get_option('brst_paypal_client_id')) && !empty(get_option('brst_paypal_secret'));
+                break;
+            default:
+                $has_keys = false;
+        }
+
+        return $enabled && $has_keys;
+    }
+
+    /**
+     * Get default/primary payment gateway
+     */
+    public function get_default_gateway() {
+        $default = get_option('brst_default_gateway', self::GATEWAY_PAYSTACK);
+
+        // If default is not enabled, get first available
+        if (!$this->is_gateway_enabled($default)) {
+            $available = $this->get_available_gateways();
+            if (!empty($available)) {
+                $default = array_key_first($available);
+            }
+        }
+
+        return $default;
     }
 
     /**
@@ -61,18 +145,27 @@ class BRST_Payment_Engine {
     }
 
     /**
-     * Initialize payment for a submission
+     * Initialize payment for a submission with specified gateway
      */
-    public function initialize_payment($submission_id) {
-        $gateway = $this->get_active_gateway();
+    public function initialize_payment($submission_id, $gateway = null) {
+        if (!$gateway) {
+            $gateway = $this->get_default_gateway();
+        }
+
+        // Verify gateway is enabled
+        if (!$this->is_gateway_enabled($gateway)) {
+            return new WP_Error('gateway_disabled', __('Selected payment gateway is not available.', 'brst-engine'));
+        }
 
         switch ($gateway) {
             case self::GATEWAY_PAYSTACK:
                 return $this->initialize_paystack_payment($submission_id);
             case self::GATEWAY_STRIPE:
                 return $this->initialize_stripe_payment($submission_id);
+            case self::GATEWAY_PAYPAL:
+                return $this->initialize_paypal_payment($submission_id);
             default:
-                return new WP_Error('invalid_gateway', __('Invalid payment gateway configured.', 'brst-engine'));
+                return new WP_Error('invalid_gateway', __('Invalid payment gateway.', 'brst-engine'));
         }
     }
 
@@ -96,7 +189,7 @@ class BRST_Payment_Engine {
             'submission_id' => $submission_id,
             'gateway' => self::GATEWAY_PAYSTACK,
             'reference' => $reference,
-            'amount' => $amount / 100, // Store in major currency unit
+            'amount' => $amount / 100,
             'currency' => $currency,
             'status' => self::STATUS_PENDING,
         ));
@@ -105,15 +198,11 @@ class BRST_Payment_Engine {
             return new WP_Error('payment_record_failed', __('Failed to create payment record.', 'brst-engine'));
         }
 
-        /**
-         * Filter: brst_paystack_payment_data
-         * Allows modification of Paystack payment initialization data
-         */
         $payment_data = apply_filters('brst_paystack_payment_data', array(
             'payment_id' => $payment_id,
             'public_key' => $public_key,
             'reference' => $reference,
-            'amount' => $amount, // In kobo
+            'amount' => $amount,
             'currency' => $currency,
             'callback_url' => add_query_arg(array(
                 'brst_payment_callback' => 1,
@@ -185,13 +274,8 @@ class BRST_Payment_Engine {
             return new WP_Error('stripe_error', $body['error']['message']);
         }
 
-        // Update payment with Stripe ID
         $this->update_payment_transaction_id($payment_id, $body['id']);
 
-        /**
-         * Filter: brst_stripe_payment_data
-         * Allows modification of Stripe payment initialization data
-         */
         return apply_filters('brst_stripe_payment_data', array(
             'success' => true,
             'gateway' => self::GATEWAY_STRIPE,
@@ -204,6 +288,262 @@ class BRST_Payment_Engine {
                 'currency' => $currency,
             ),
         ), $submission_id);
+    }
+
+    /**
+     * Initialize PayPal payment
+     */
+    private function initialize_paypal_payment($submission_id) {
+        $client_id = get_option('brst_paypal_client_id');
+        $secret = get_option('brst_paypal_secret');
+        $sandbox = get_option('brst_paypal_sandbox', true);
+
+        if (empty($client_id) || empty($secret)) {
+            return new WP_Error('paypal_not_configured', __('PayPal is not properly configured.', 'brst-engine'));
+        }
+
+        $amount = $this->get_payment_amount() / 100;
+        $currency = $this->get_payment_currency();
+        $reference = $this->generate_reference($submission_id);
+
+        // Create payment record
+        $payment_id = $this->create_payment_record(array(
+            'submission_id' => $submission_id,
+            'gateway' => self::GATEWAY_PAYPAL,
+            'reference' => $reference,
+            'amount' => $amount,
+            'currency' => $currency,
+            'status' => self::STATUS_PENDING,
+        ));
+
+        if (!$payment_id) {
+            return new WP_Error('payment_record_failed', __('Failed to create payment record.', 'brst-engine'));
+        }
+
+        // Get PayPal access token
+        $access_token = $this->get_paypal_access_token();
+        if (is_wp_error($access_token)) {
+            $this->update_payment_status($payment_id, self::STATUS_FAILED);
+            return $access_token;
+        }
+
+        // Create PayPal order
+        $api_base = $sandbox ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+
+        $return_url = add_query_arg(array(
+            'action' => 'brst_paypal_return',
+            'ref' => $reference,
+        ), admin_url('admin-ajax.php'));
+
+        $cancel_url = add_query_arg(array(
+            'brst_payment_cancelled' => 1,
+            'ref' => $reference,
+        ), home_url());
+
+        $response = wp_remote_post($api_base . '/v2/checkout/orders', array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $access_token,
+                'Content-Type' => 'application/json',
+            ),
+            'body' => wp_json_encode(array(
+                'intent' => 'CAPTURE',
+                'purchase_units' => array(
+                    array(
+                        'reference_id' => $reference,
+                        'amount' => array(
+                            'currency_code' => $currency,
+                            'value' => number_format($amount, 2, '.', ''),
+                        ),
+                        'description' => __('Business Risk Stress Test Report', 'brst-engine'),
+                    ),
+                ),
+                'application_context' => array(
+                    'return_url' => $return_url,
+                    'cancel_url' => $cancel_url,
+                    'brand_name' => get_bloginfo('name'),
+                    'user_action' => 'PAY_NOW',
+                ),
+            )),
+        ));
+
+        if (is_wp_error($response)) {
+            $this->update_payment_status($payment_id, self::STATUS_FAILED);
+            return $response;
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if (isset($body['error'])) {
+            $this->update_payment_status($payment_id, self::STATUS_FAILED);
+            return new WP_Error('paypal_error', $body['error_description'] ?? $body['message'] ?? __('PayPal error', 'brst-engine'));
+        }
+
+        // Update payment with PayPal order ID
+        $this->update_payment_transaction_id($payment_id, $body['id']);
+
+        // Find approval URL
+        $approval_url = '';
+        foreach ($body['links'] as $link) {
+            if ($link['rel'] === 'approve') {
+                $approval_url = $link['href'];
+                break;
+            }
+        }
+
+        return apply_filters('brst_paypal_payment_data', array(
+            'success' => true,
+            'gateway' => self::GATEWAY_PAYPAL,
+            'data' => array(
+                'payment_id' => $payment_id,
+                'order_id' => $body['id'],
+                'reference' => $reference,
+                'approval_url' => $approval_url,
+                'amount' => $amount,
+                'currency' => $currency,
+                'client_id' => $client_id,
+                'sandbox' => $sandbox,
+            ),
+        ), $submission_id);
+    }
+
+    /**
+     * Get PayPal access token
+     */
+    private function get_paypal_access_token() {
+        $client_id = get_option('brst_paypal_client_id');
+        $secret = get_option('brst_paypal_secret');
+        $sandbox = get_option('brst_paypal_sandbox', true);
+
+        $api_base = $sandbox ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+
+        $response = wp_remote_post($api_base . '/v1/oauth2/token', array(
+            'headers' => array(
+                'Authorization' => 'Basic ' . base64_encode($client_id . ':' . $secret),
+                'Content-Type' => 'application/x-www-form-urlencoded',
+            ),
+            'body' => 'grant_type=client_credentials',
+        ));
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if (isset($body['error'])) {
+            return new WP_Error('paypal_auth_error', $body['error_description'] ?? __('PayPal authentication failed', 'brst-engine'));
+        }
+
+        return $body['access_token'];
+    }
+
+    /**
+     * Handle PayPal return
+     */
+    public function handle_paypal_return() {
+        $reference = sanitize_text_field($_GET['ref'] ?? '');
+        $token = sanitize_text_field($_GET['token'] ?? '');
+
+        if (empty($reference)) {
+            wp_die(__('Invalid payment reference.', 'brst-engine'));
+        }
+
+        $payment = $this->get_payment_by_reference($reference);
+        if (!$payment) {
+            wp_die(__('Payment not found.', 'brst-engine'));
+        }
+
+        if ($payment->status === self::STATUS_SUCCESS) {
+            // Already processed
+            $redirect_url = add_query_arg(array(
+                'brst_email_capture' => 1,
+                'submission_id' => $payment->submission_id,
+                'payment_id' => $payment->id,
+            ), home_url());
+            wp_redirect($redirect_url);
+            exit;
+        }
+
+        // Capture the payment
+        $capture_result = $this->capture_paypal_payment($payment->transaction_id);
+
+        if (is_wp_error($capture_result)) {
+            $this->process_failed_payment($payment->id, array('error' => $capture_result->get_error_message()));
+            wp_die($capture_result->get_error_message());
+        }
+
+        if ($capture_result['status'] === 'COMPLETED') {
+            $this->process_successful_payment($payment->id, $capture_result);
+
+            $redirect_url = add_query_arg(array(
+                'brst_email_capture' => 1,
+                'submission_id' => $payment->submission_id,
+                'payment_id' => $payment->id,
+            ), home_url());
+            wp_redirect($redirect_url);
+            exit;
+        }
+
+        wp_die(__('Payment could not be completed.', 'brst-engine'));
+    }
+
+    /**
+     * Capture PayPal payment
+     */
+    private function capture_paypal_payment($order_id) {
+        $access_token = $this->get_paypal_access_token();
+        if (is_wp_error($access_token)) {
+            return $access_token;
+        }
+
+        $sandbox = get_option('brst_paypal_sandbox', true);
+        $api_base = $sandbox ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+
+        $response = wp_remote_post($api_base . '/v2/checkout/orders/' . $order_id . '/capture', array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $access_token,
+                'Content-Type' => 'application/json',
+            ),
+            'body' => '{}',
+        ));
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if (isset($body['error'])) {
+            return new WP_Error('paypal_capture_error', $body['error_description'] ?? __('Failed to capture payment', 'brst-engine'));
+        }
+
+        return $body;
+    }
+
+    /**
+     * Handle PayPal webhook (IPN)
+     */
+    public function handle_paypal_webhook() {
+        $input = file_get_contents('php://input');
+        $event = json_decode($input, true);
+
+        if ($event['event_type'] === 'CHECKOUT.ORDER.APPROVED') {
+            $order_id = $event['resource']['id'];
+            $reference = $event['resource']['purchase_units'][0]['reference_id'] ?? '';
+
+            if ($reference) {
+                $payment = $this->get_payment_by_reference($reference);
+                if ($payment && $payment->status !== self::STATUS_SUCCESS) {
+                    $capture_result = $this->capture_paypal_payment($order_id);
+                    if (!is_wp_error($capture_result) && $capture_result['status'] === 'COMPLETED') {
+                        $this->process_successful_payment($payment->id, $capture_result);
+                    }
+                }
+            }
+        }
+
+        wp_send_json_success();
+        exit;
     }
 
     /**
@@ -231,13 +571,7 @@ class BRST_Payment_Engine {
 
         if ($result) {
             $payment_id = $wpdb->insert_id;
-
-            /**
-             * Action: brst_payment_created
-             * Fires when a payment record is created
-             */
             do_action('brst_payment_created', $payment_id, $data);
-
             return $payment_id;
         }
 
@@ -256,16 +590,7 @@ class BRST_Payment_Engine {
             $update_data['gateway_response'] = wp_json_encode($gateway_response);
         }
 
-        $result = $wpdb->update(
-            $table,
-            $update_data,
-            array('id' => $payment_id)
-        );
-
-        /**
-         * Action: brst_payment_status_updated
-         * Fires when payment status is updated
-         */
+        $result = $wpdb->update($table, $update_data, array('id' => $payment_id));
         do_action('brst_payment_status_updated', $payment_id, $status, $gateway_response);
 
         return $result;
@@ -278,11 +603,7 @@ class BRST_Payment_Engine {
         global $wpdb;
         $table = BRST_Database::get_table_name('payments');
 
-        return $wpdb->update(
-            $table,
-            array('transaction_id' => $transaction_id),
-            array('id' => $payment_id)
-        );
+        return $wpdb->update($table, array('transaction_id' => $transaction_id), array('id' => $payment_id));
     }
 
     /**
@@ -292,9 +613,7 @@ class BRST_Payment_Engine {
         global $wpdb;
         $table = BRST_Database::get_table_name('payments');
 
-        return $wpdb->get_row(
-            $wpdb->prepare("SELECT * FROM $table WHERE reference = %s", $reference)
-        );
+        return $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE reference = %s", $reference));
     }
 
     /**
@@ -304,9 +623,7 @@ class BRST_Payment_Engine {
         global $wpdb;
         $table = BRST_Database::get_table_name('payments');
 
-        return $wpdb->get_row(
-            $wpdb->prepare("SELECT * FROM $table WHERE id = %d", $payment_id)
-        );
+        return $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $payment_id));
     }
 
     /**
@@ -316,9 +633,7 @@ class BRST_Payment_Engine {
         global $wpdb;
         $table = BRST_Database::get_table_name('payments');
 
-        return $wpdb->get_results(
-            $wpdb->prepare("SELECT * FROM $table WHERE submission_id = %d ORDER BY created_at DESC", $submission_id)
-        );
+        return $wpdb->get_results($wpdb->prepare("SELECT * FROM $table WHERE submission_id = %d ORDER BY created_at DESC", $submission_id));
     }
 
     /**
@@ -333,11 +648,7 @@ class BRST_Payment_Engine {
 
         $response = wp_remote_get(
             'https://api.paystack.co/transaction/verify/' . rawurlencode($reference),
-            array(
-                'headers' => array(
-                    'Authorization' => 'Bearer ' . $secret_key,
-                ),
-            )
+            array('headers' => array('Authorization' => 'Bearer ' . $secret_key))
         );
 
         if (is_wp_error($response)) {
@@ -363,14 +674,12 @@ class BRST_Payment_Engine {
             return new WP_Error('payment_not_found', __('Payment not found.', 'brst-engine'));
         }
 
-        // Update payment status
         $this->update_payment_status($payment_id, self::STATUS_SUCCESS, $transaction_data);
 
         if (!empty($transaction_data['id'])) {
             $this->update_payment_transaction_id($payment_id, $transaction_data['id']);
         }
 
-        // Log the activity
         $this->log_activity($payment->submission_id, 'payment_success', array(
             'payment_id' => $payment_id,
             'gateway' => $payment->gateway,
@@ -378,10 +687,6 @@ class BRST_Payment_Engine {
             'currency' => $payment->currency,
         ));
 
-        /**
-         * Action: brst_payment_success
-         * Fires when payment is successful
-         */
         do_action('brst_payment_success', $payment_id, $payment->submission_id, $transaction_data);
 
         return true;
@@ -397,20 +702,14 @@ class BRST_Payment_Engine {
             return new WP_Error('payment_not_found', __('Payment not found.', 'brst-engine'));
         }
 
-        // Update payment status
         $this->update_payment_status($payment_id, self::STATUS_FAILED, $error_data);
 
-        // Log the activity
         $this->log_activity($payment->submission_id, 'payment_failed', array(
             'payment_id' => $payment_id,
             'gateway' => $payment->gateway,
             'error' => $error_data,
         ));
 
-        /**
-         * Action: brst_payment_failed
-         * Fires when payment fails
-         */
         do_action('brst_payment_failed', $payment_id, $payment->submission_id, $error_data);
 
         return true;
@@ -423,7 +722,6 @@ class BRST_Payment_Engine {
         $secret_key = get_option('brst_paystack_secret_key');
         $input = file_get_contents('php://input');
 
-        // Verify signature
         if (!empty($_SERVER['HTTP_X_PAYSTACK_SIGNATURE'])) {
             $signature = hash_hmac('sha512', $input, $secret_key);
             if ($signature !== $_SERVER['HTTP_X_PAYSTACK_SIGNATURE']) {
@@ -451,15 +749,7 @@ class BRST_Payment_Engine {
      * Handle Stripe webhook
      */
     public function handle_stripe_webhook() {
-        $secret_key = get_option('brst_stripe_webhook_secret');
         $input = file_get_contents('php://input');
-
-        // Verify signature if webhook secret is configured
-        if (!empty($secret_key) && !empty($_SERVER['HTTP_STRIPE_SIGNATURE'])) {
-            $sig_header = $_SERVER['HTTP_STRIPE_SIGNATURE'];
-            // Stripe signature verification would go here
-        }
-
         $event = json_decode($input, true);
 
         if ($event['type'] === 'payment_intent.succeeded') {
@@ -479,14 +769,19 @@ class BRST_Payment_Engine {
     }
 
     /**
-     * Render payment form
+     * Render payment form with gateway selection
      */
     public function render_payment_form($submission_id, $payment_data) {
-        $gateway = $this->get_active_gateway();
+        $available_gateways = $this->get_available_gateways();
+        $default_gateway = $this->get_default_gateway();
         $terms_page = get_option('brst_terms_page');
         $privacy_page = get_option('brst_privacy_page');
         $amount = $this->get_payment_amount() / 100;
         $currency = $this->get_payment_currency();
+
+        if (empty($available_gateways)) {
+            return '<div class="brst-error">' . esc_html__('No payment methods are currently available. Please contact support.', 'brst-engine') . '</div>';
+        }
 
         ob_start();
         ?>
@@ -516,7 +811,25 @@ class BRST_Payment_Engine {
             <form id="brst-payment-form" class="brst-payment-form">
                 <?php wp_nonce_field('brst_payment', 'brst_payment_nonce'); ?>
                 <input type="hidden" name="submission_id" value="<?php echo esc_attr($submission_id); ?>">
-                <input type="hidden" name="gateway" value="<?php echo esc_attr($gateway); ?>">
+
+                <?php if (count($available_gateways) > 1): ?>
+                <div class="brst-gateway-selection">
+                    <h4><?php esc_html_e('Select Payment Method', 'brst-engine'); ?></h4>
+                    <div class="brst-gateway-options">
+                        <?php foreach ($available_gateways as $gateway_id => $gateway): ?>
+                        <label class="brst-gateway-option <?php echo $gateway_id === $default_gateway ? 'selected' : ''; ?>">
+                            <input type="radio" name="gateway" value="<?php echo esc_attr($gateway_id); ?>" <?php checked($gateway_id, $default_gateway); ?>>
+                            <span class="brst-gateway-info">
+                                <span class="brst-gateway-name"><?php echo esc_html($gateway['name']); ?></span>
+                                <span class="brst-gateway-desc"><?php echo esc_html($gateway['description']); ?></span>
+                            </span>
+                        </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php else: ?>
+                    <input type="hidden" name="gateway" value="<?php echo esc_attr($default_gateway); ?>">
+                <?php endif; ?>
 
                 <div class="brst-consent-section">
                     <label class="brst-consent-checkbox brst-required-consent">
@@ -567,7 +880,7 @@ class BRST_Payment_Engine {
 
             <div class="brst-payment-secure">
                 <span class="brst-secure-icon">🔒</span>
-                <span><?php esc_html_e('Secure payment powered by', 'brst-engine'); ?> <?php echo esc_html(ucfirst($gateway)); ?></span>
+                <span><?php esc_html_e('Secure payment', 'brst-engine'); ?></span>
             </div>
         </div>
         <?php
