@@ -26,7 +26,7 @@ define('BRST_VERSION', '1.0.0');
 define('BRST_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BRST_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('BRST_PLUGIN_BASENAME', plugin_basename(__FILE__));
-define('BRST_DB_VERSION', '1.0.0');
+define('BRST_DB_VERSION', '1.0.1');
 
 /**
  * Main Plugin Class
@@ -149,6 +149,9 @@ final class Business_Risk_Stress_Test_Engine {
      * Initialize components
      */
     public function init_components() {
+        // Check for database upgrades
+        BRST_Database::maybe_upgrade();
+
         $this->form_engine = new BRST_Form_Engine();
         $this->scoring_engine = new BRST_Scoring_Engine();
         $this->profile_engine = new BRST_Profile_Engine();

@@ -405,6 +405,58 @@ class BRST_Database {
     }
 
     /**
+     * Check and upgrade database if needed
+     */
+    public static function maybe_upgrade() {
+        $current_version = get_option('brst_db_version', '1.0.0');
+
+        // Version 1.0.1: Add user_name, user_email, company_name to submissions
+        if (version_compare($current_version, '1.0.1', '<')) {
+            self::upgrade_to_101();
+            update_option('brst_db_version', '1.0.1');
+        }
+    }
+
+    /**
+     * Upgrade to version 1.0.1 - Add user info columns
+     */
+    private static function upgrade_to_101() {
+        global $wpdb;
+
+        // Add columns to submissions table
+        $table_submissions = $wpdb->prefix . 'brst_submissions';
+
+        // Check if columns exist before adding
+        $columns = $wpdb->get_col("DESCRIBE $table_submissions");
+
+        if (!in_array('user_name', $columns)) {
+            $wpdb->query("ALTER TABLE $table_submissions ADD COLUMN user_name varchar(255) AFTER session_id");
+        }
+
+        if (!in_array('user_email', $columns)) {
+            $wpdb->query("ALTER TABLE $table_submissions ADD COLUMN user_email varchar(255) AFTER user_name");
+        }
+
+        if (!in_array('company_name', $columns)) {
+            $wpdb->query("ALTER TABLE $table_submissions ADD COLUMN company_name varchar(255) AFTER user_email");
+        }
+
+        // Add index on user_email if not exists
+        $indexes = $wpdb->get_results("SHOW INDEX FROM $table_submissions WHERE Key_name = 'user_email'");
+        if (empty($indexes)) {
+            $wpdb->query("ALTER TABLE $table_submissions ADD INDEX user_email (user_email)");
+        }
+
+        // Add name column to email_captures table
+        $table_emails = $wpdb->prefix . 'brst_email_captures';
+        $email_columns = $wpdb->get_col("DESCRIBE $table_emails");
+
+        if (!in_array('name', $email_columns)) {
+            $wpdb->query("ALTER TABLE $table_emails ADD COLUMN name varchar(255) AFTER payment_id");
+        }
+    }
+
+    /**
      * Get table name with prefix
      */
     public static function get_table_name($table) {
