@@ -86,6 +86,26 @@ class BRST_Admin {
             'brst-settings',
             array($this, 'render_settings')
         );
+
+        // Form Builder submenu
+        add_submenu_page(
+            'brst-dashboard',
+            __('Form Builder', 'brst-engine'),
+            __('Form Builder', 'brst-engine'),
+            'manage_options',
+            'brst-form-builder',
+            array($this, 'render_form_builder')
+        );
+
+        // Documentation submenu
+        add_submenu_page(
+            'brst-dashboard',
+            __('Documentation', 'brst-engine'),
+            __('Documentation', 'brst-engine'),
+            'manage_options',
+            'brst-documentation',
+            array($this, 'render_documentation')
+        );
     }
 
     /**
@@ -279,86 +299,24 @@ class BRST_Admin {
      * Render templates page
      */
     public function render_templates() {
-        global $wpdb;
-        $table = BRST_Database::get_table_name('report_templates');
-        $templates = $wpdb->get_results("SELECT * FROM $table ORDER BY template_type, title");
-        ?>
-        <div class="wrap brst-admin-wrap">
-            <h1><?php esc_html_e('Report Templates', 'brst-engine'); ?></h1>
+        $templates_handler = new BRST_Admin_Templates();
+        $templates_handler->render();
+    }
 
-            <div class="brst-templates-list">
-                <h2><?php esc_html_e('Mini Report Templates', 'brst-engine'); ?></h2>
-                <table class="wp-list-table widefat fixed striped">
-                    <thead>
-                        <tr>
-                            <th><?php esc_html_e('Template Key', 'brst-engine'); ?></th>
-                            <th><?php esc_html_e('Title', 'brst-engine'); ?></th>
-                            <th><?php esc_html_e('Status', 'brst-engine'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($templates as $template):
-                            if ($template->template_type !== 'mini_report') continue;
-                        ?>
-                        <tr>
-                            <td><code><?php echo esc_html($template->template_key); ?></code></td>
-                            <td><?php echo esc_html($template->title); ?></td>
-                            <td><?php echo esc_html($template->status); ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+    /**
+     * Render form builder page
+     */
+    public function render_form_builder() {
+        $form_builder = new BRST_Admin_Form_Builder();
+        $form_builder->render();
+    }
 
-                <h2><?php esc_html_e('Full Report Templates', 'brst-engine'); ?></h2>
-                <table class="wp-list-table widefat fixed striped">
-                    <thead>
-                        <tr>
-                            <th><?php esc_html_e('Template Key', 'brst-engine'); ?></th>
-                            <th><?php esc_html_e('Title', 'brst-engine'); ?></th>
-                            <th><?php esc_html_e('Status', 'brst-engine'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($templates as $template):
-                            if ($template->template_type !== 'full_report') continue;
-                        ?>
-                        <tr>
-                            <td><code><?php echo esc_html($template->template_key); ?></code></td>
-                            <td><?php echo esc_html($template->title); ?></td>
-                            <td><?php echo esc_html($template->status); ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-
-                <h2><?php esc_html_e('Email Templates', 'brst-engine'); ?></h2>
-                <table class="wp-list-table widefat fixed striped">
-                    <thead>
-                        <tr>
-                            <th><?php esc_html_e('Template Key', 'brst-engine'); ?></th>
-                            <th><?php esc_html_e('Title', 'brst-engine'); ?></th>
-                            <th><?php esc_html_e('Status', 'brst-engine'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($templates as $template):
-                            if ($template->template_type !== 'email') continue;
-                        ?>
-                        <tr>
-                            <td><code><?php echo esc_html($template->template_key); ?></code></td>
-                            <td><?php echo esc_html($template->title); ?></td>
-                            <td><?php echo esc_html($template->status); ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="brst-templates-note">
-                <p><strong><?php esc_html_e('Note:', 'brst-engine'); ?></strong> <?php esc_html_e('All reports are generated using pre-written, pre-approved templates. No AI-generated content is used.', 'brst-engine'); ?></p>
-            </div>
-        </div>
-        <?php
+    /**
+     * Render documentation page
+     */
+    public function render_documentation() {
+        $documentation = new BRST_Admin_Documentation();
+        $documentation->render();
     }
 
     /**

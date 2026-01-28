@@ -54,7 +54,15 @@ class BRST_Form_Engine {
         $questions = $this->get_questions();
         $steps = array();
 
-        // Create multi-step form - 5 questions per step for Q1-Q20, plus Q21
+        // Step 0: User Information - get fields from form builder or use defaults
+        $user_fields = $this->get_user_info_fields();
+        $steps[] = array(
+            'id' => 'step_0',
+            'title' => get_option('brst_step_user_info_title', __('Your Information', 'brst-engine')),
+            'fields' => $user_fields,
+        );
+
+        // Create multi-step form - 4 questions per step for Q1-Q20, plus Q21
         $step_count = 0;
         $fields = array();
 
@@ -88,16 +96,21 @@ class BRST_Form_Engine {
             }
         }
 
+        // Get customizable settings from options
+        $form_title = get_option('brst_form_title', __('Business Risk Stress Test', 'brst-engine'));
+        $form_description = get_option('brst_form_description', __('Answer the following questions to assess your business risk profile.', 'brst-engine'));
+        $submit_text = get_option('brst_submit_button_text', __('Get My Results', 'brst-engine'));
+
         return array(
             'form_id' => 'business_risk_questionnaire',
-            'title' => 'Business Risk Stress Test',
-            'description' => 'Answer the following questions to assess your business risk profile.',
+            'title' => $form_title,
+            'description' => $form_description,
             'multi_step' => true,
             'steps' => $steps,
             'settings' => array(
                 'show_progress' => true,
                 'allow_back' => true,
-                'submit_text' => 'Get My Results',
+                'submit_text' => $submit_text,
                 'redirect_after_submit' => false,
                 'show_results_on_screen' => true,
             ),
@@ -252,19 +265,64 @@ class BRST_Form_Engine {
     }
 
     /**
+     * Get user information fields from form builder or defaults
+     */
+    private function get_user_info_fields() {
+        // Get custom fields from form builder
+        $custom_fields = get_option('brst_custom_user_fields');
+
+        if (!empty($custom_fields) && is_array($custom_fields)) {
+            // Add scored => false to all custom fields
+            return array_map(function($field) {
+                $field['scored'] = false;
+                return $field;
+            }, $custom_fields);
+        }
+
+        // Return default fields
+        return array(
+            array(
+                'id' => 'user_name',
+                'type' => 'text',
+                'label' => __('Your Full Name', 'brst-engine'),
+                'placeholder' => __('Enter your name', 'brst-engine'),
+                'required' => true,
+                'scored' => false,
+            ),
+            array(
+                'id' => 'user_email',
+                'type' => 'email',
+                'label' => __('Email Address', 'brst-engine'),
+                'placeholder' => __('Enter your email', 'brst-engine'),
+                'description' => __('Your report will be sent to this email address.', 'brst-engine'),
+                'required' => true,
+                'scored' => false,
+            ),
+            array(
+                'id' => 'company_name',
+                'type' => 'text',
+                'label' => __('Company/Business Name', 'brst-engine'),
+                'placeholder' => __('Enter your business name (optional)', 'brst-engine'),
+                'required' => false,
+                'scored' => false,
+            ),
+        );
+    }
+
+    /**
      * Get step title based on step number
      */
     private function get_step_title($step_num) {
         $titles = array(
-            1 => 'Cash Flow Assessment',
-            2 => 'Revenue Diversity',
-            3 => 'Cost Structure',
-            4 => 'Business Dependency',
-            5 => 'External Exposure',
-            6 => 'Your Focus Area',
+            1 => __('Cash Flow Assessment', 'brst-engine'),
+            2 => __('Revenue Diversity', 'brst-engine'),
+            3 => __('Cost Structure', 'brst-engine'),
+            4 => __('Business Dependency', 'brst-engine'),
+            5 => __('External Exposure', 'brst-engine'),
+            6 => __('Your Focus Area', 'brst-engine'),
         );
 
-        return $titles[$step_num] ?? "Step {$step_num}";
+        return $titles[$step_num] ?? sprintf(__('Step %d', 'brst-engine'), $step_num);
     }
 
     /**

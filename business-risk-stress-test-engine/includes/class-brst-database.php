@@ -46,6 +46,9 @@ class BRST_Database {
             id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             form_id bigint(20) UNSIGNED NOT NULL,
             session_id varchar(64) NOT NULL,
+            user_name varchar(255),
+            user_email varchar(255),
+            company_name varchar(255),
             responses longtext NOT NULL,
             scores longtext,
             category_scores longtext,
@@ -62,6 +65,7 @@ class BRST_Database {
             KEY form_id (form_id),
             KEY session_id (session_id),
             KEY primary_profile (primary_profile),
+            KEY user_email (user_email),
             KEY created_at (created_at)
         ) $charset_collate;";
         dbDelta($sql_submissions);
@@ -94,6 +98,7 @@ class BRST_Database {
             id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             submission_id bigint(20) UNSIGNED NOT NULL,
             payment_id bigint(20) UNSIGNED,
+            name varchar(255),
             email varchar(255) NOT NULL,
             marketing_consent tinyint(1) DEFAULT 0,
             consent_timestamp datetime,

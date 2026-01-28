@@ -61,6 +61,20 @@ class BRST_Ajax_Handler {
         $session_id = sanitize_text_field($_POST['session_id'] ?? '');
         $responses = array();
 
+        // Get user info (name, email, company)
+        $user_name = sanitize_text_field($_POST['user_name'] ?? '');
+        $user_email = sanitize_email($_POST['user_email'] ?? '');
+        $company_name = sanitize_text_field($_POST['company_name'] ?? '');
+
+        // Validate user info
+        if (empty($user_name)) {
+            wp_send_json_error(array('message' => __('Please enter your name.', 'brst-engine')));
+        }
+
+        if (empty($user_email) || !is_email($user_email)) {
+            wp_send_json_error(array('message' => __('Please enter a valid email address.', 'brst-engine')));
+        }
+
         // Collect responses for Q1-Q21
         for ($i = 1; $i <= 21; $i++) {
             $key = "q{$i}";
@@ -98,10 +112,13 @@ class BRST_Ajax_Handler {
             $profile_analysis['secondary_profile']['key']
         );
 
-        // Save submission
+        // Save submission with user info
         $submission_id = $this->save_submission(array(
             'form_id' => $form_id,
             'session_id' => $session_id,
+            'user_name' => $user_name,
+            'user_email' => $user_email,
+            'company_name' => $company_name,
             'responses' => $responses,
             'scores_data' => $scores_data,
             'profile_analysis' => $profile_analysis,
@@ -111,6 +128,10 @@ class BRST_Ajax_Handler {
         if (!$submission_id) {
             wp_send_json_error(array('message' => __('Failed to save your responses. Please try again.', 'brst-engine')));
         }
+
+        // Save email capture immediately (so we have it for reports)
+        $gdpr = new BRST_GDPR();
+        $gdpr->save_email_capture($submission_id, $user_email, false, $user_name);
 
         // Generate mini report
         $mini_report_engine = new BRST_Mini_Report();
@@ -131,6 +152,8 @@ class BRST_Ajax_Handler {
 
         wp_send_json_success(array(
             'submission_id' => $submission_id,
+            'user_name' => $user_name,
+            'user_email' => $user_email,
             'mini_report' => $mini_report,
             'mini_report_html' => $mini_report_html,
             'profile' => $profile_analysis['primary_profile'],
@@ -147,6 +170,9 @@ class BRST_Ajax_Handler {
         $result = $wpdb->insert($table, array(
             'form_id' => 1, // Default form
             'session_id' => $data['session_id'],
+            'user_name' => $data['user_name'] ?? '',
+            'user_email' => $data['user_email'] ?? '',
+            'company_name' => $data['company_name'] ?? '',
             'responses' => wp_json_encode($data['responses']),
             'scores' => wp_json_encode($data['scores_data']['individual_scores']),
             'category_scores' => wp_json_encode($data['scores_data']['category_scores']),

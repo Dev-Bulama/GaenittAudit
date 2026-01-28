@@ -328,12 +328,13 @@ class BRST_GDPR {
     /**
      * Save email with consent
      */
-    public function save_email_capture($submission_id, $email, $marketing_consent = false) {
+    public function save_email_capture($submission_id, $email, $marketing_consent = false, $name = '') {
         global $wpdb;
         $table = BRST_Database::get_table_name('email_captures');
 
         $data = array(
             'submission_id' => intval($submission_id),
+            'name' => sanitize_text_field($name),
             'email' => sanitize_email($email),
             'marketing_consent' => $marketing_consent ? 1 : 0,
             'consent_timestamp' => $marketing_consent ? current_time('mysql') : null,

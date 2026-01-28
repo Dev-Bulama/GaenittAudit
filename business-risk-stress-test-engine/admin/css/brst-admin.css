@@ -227,6 +227,138 @@
     margin-bottom: 20px;
 }
 
+/* Toggle Switch */
+.brst-toggle {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 26px;
+    vertical-align: middle;
+    margin-right: 10px;
+}
+
+.brst-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.brst-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 26px;
+}
+
+.brst-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.brst-toggle input:checked + .brst-toggle-slider {
+    background-color: var(--brst-admin-primary);
+}
+
+.brst-toggle input:focus + .brst-toggle-slider {
+    box-shadow: 0 0 1px var(--brst-admin-primary);
+}
+
+.brst-toggle input:checked + .brst-toggle-slider:before {
+    transform: translateX(24px);
+}
+
+/* Settings Info Box */
+.brst-settings-info {
+    background: #f0f6fc;
+    border-left: 4px solid var(--brst-admin-primary);
+    padding: 15px;
+    margin: 20px 0;
+}
+
+.brst-settings-info h4 {
+    margin-top: 0;
+    color: #1d2327;
+}
+
+.brst-settings-info p {
+    margin-bottom: 0;
+    color: #646970;
+}
+
+/* Status Colors */
+.brst-status-active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.brst-status-inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Template Editor */
+.brst-template-form .form-table th {
+    width: 200px;
+}
+
+.brst-template-form textarea {
+    width: 100%;
+    min-height: 150px;
+}
+
+/* Form Builder */
+.brst-form-builder .brst-field-placeholder {
+    background: #e7f5ff;
+    border: 2px dashed var(--brst-admin-primary);
+    height: 60px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.brst-form-builder .brst-field-item.ui-sortable-helper {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* Documentation */
+.brst-documentation pre {
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.brst-documentation code {
+    background: #f0f0f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.brst-docs-tip {
+    background: #e7f5ff;
+    border-left: 4px solid var(--brst-admin-primary);
+    padding: 15px;
+    margin: 20px 0;
+}
+
+.brst-docs-warning {
+    background: #fff3cd;
+    border-left: 4px solid var(--brst-admin-warning);
+    padding: 15px;
+    margin: 20px 0;
+}
+
 /* Responsive */
 @media screen and (max-width: 782px) {
     .brst-dashboard-stats {
@@ -255,5 +387,13 @@
     .brst-detail-section .form-table td {
         display: block;
         padding-top: 0;
+    }
+
+    .brst-docs-container {
+        flex-direction: column;
+    }
+
+    .brst-docs-sidebar {
+        width: 100% !important;
     }
 }
