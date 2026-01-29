@@ -48,6 +48,7 @@ class BRST_Mini_Report {
             'score_percentage' => $profile_analysis['primary_profile']['percentage'],
             'focus_area' => $profile_analysis['q21_focus'],
             'cta_text' => $template['cta_text'] ?? __('Unlock Full Report', 'brst-engine'),
+            'category_scores' => $scores_data['category_scores'] ?? array(),
         );
 
         /**
@@ -171,6 +172,23 @@ class BRST_Mini_Report {
                     <span class="brst-score-value"><?php echo esc_html($mini_report['score_percentage']); ?>%</span>
                 </div>
 
+                <?php if (!empty($mini_report['category_scores'])): ?>
+                <div class="brst-category-scores">
+                    <h4 class="brst-category-scores-title"><?php esc_html_e('Category Performance', 'brst-engine'); ?></h4>
+                    <?php foreach ($mini_report['category_scores'] as $category_key => $category_data): ?>
+                    <div class="brst-category-score-item">
+                        <div class="brst-category-score-header">
+                            <span class="brst-category-name"><?php echo esc_html($category_data['name']); ?></span>
+                            <span class="brst-category-percentage"><?php echo esc_html(round($category_data['percentage'])); ?>%</span>
+                        </div>
+                        <div class="brst-category-score-bar">
+                            <div class="brst-category-score-fill <?php echo esc_attr($this->get_score_level_class($category_data['percentage'])); ?>" style="width: <?php echo esc_attr($category_data['percentage']); ?>%;"></div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+
                 <div class="brst-focus-display">
                     <span class="brst-focus-label"><?php esc_html_e('Your Current Focus:', 'brst-engine'); ?></span>
                     <span class="brst-focus-value"><?php echo esc_html($mini_report['focus_area']); ?></span>
@@ -247,5 +265,21 @@ class BRST_Mini_Report {
             array('%d'),
             array('%d')
         );
+    }
+
+    /**
+     * Get CSS class for score level
+     *
+     * @param float $percentage The score percentage
+     * @return string CSS class name
+     */
+    private function get_score_level_class($percentage) {
+        if ($percentage >= 70) {
+            return 'brst-score-high';
+        } elseif ($percentage >= 40) {
+            return 'brst-score-medium';
+        } else {
+            return 'brst-score-low';
+        }
     }
 }
