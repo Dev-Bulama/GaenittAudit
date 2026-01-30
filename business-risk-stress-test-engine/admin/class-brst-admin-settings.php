@@ -317,6 +317,47 @@ class BRST_Admin_Settings {
         ?>
         <h2><?php esc_html_e('Form Customization', 'brst-engine'); ?></h2>
 
+        <h3><?php esc_html_e('Results Display', 'brst-engine'); ?></h3>
+        <table class="form-table">
+            <tr>
+                <th scope="row">
+                    <label for="brst_show_category_scores"><?php esc_html_e('Show Category Scores', 'brst-engine'); ?></label>
+                </th>
+                <td>
+                    <label class="brst-toggle">
+                        <input type="checkbox" name="brst_show_category_scores" id="brst_show_category_scores" value="1"
+                               <?php checked(get_option('brst_show_category_scores', true), true); ?>>
+                        <span class="brst-toggle-slider"></span>
+                    </label>
+                    <span class="description"><?php esc_html_e('Display individual category performance percentages in the mini report.', 'brst-engine'); ?></span>
+                </td>
+            </tr>
+        </table>
+
+        <h3><?php esc_html_e('Post-Payment Email Capture', 'brst-engine'); ?></h3>
+        <table class="form-table">
+            <tr>
+                <th scope="row">
+                    <label for="brst_email_capture_title"><?php esc_html_e('Email Form Title', 'brst-engine'); ?></label>
+                </th>
+                <td>
+                    <input type="text" name="brst_email_capture_title" id="brst_email_capture_title"
+                           value="<?php echo esc_attr(get_option('brst_email_capture_title', __('Where do you want your full report delivered?', 'brst-engine'))); ?>" class="large-text">
+                    <p class="description"><?php esc_html_e('The title shown on the email capture form after payment.', 'brst-engine'); ?></p>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">
+                    <label for="brst_email_capture_success"><?php esc_html_e('Success Message', 'brst-engine'); ?></label>
+                </th>
+                <td>
+                    <input type="text" name="brst_email_capture_success" id="brst_email_capture_success"
+                           value="<?php echo esc_attr(get_option('brst_email_capture_success', __('Payment Successful!', 'brst-engine'))); ?>" class="large-text">
+                    <p class="description"><?php esc_html_e('The success message shown after payment completes.', 'brst-engine'); ?></p>
+                </td>
+            </tr>
+        </table>
+
         <h3><?php esc_html_e('Form Text', 'brst-engine'); ?></h3>
         <table class="form-table">
             <tr>
@@ -531,6 +572,14 @@ class BRST_Admin_Settings {
                 break;
 
             case 'form':
+                // Results display
+                update_option('brst_show_category_scores', isset($_POST['brst_show_category_scores']) ? true : false);
+
+                // Email capture
+                update_option('brst_email_capture_title', sanitize_text_field($_POST['brst_email_capture_title'] ?? ''));
+                update_option('brst_email_capture_success', sanitize_text_field($_POST['brst_email_capture_success'] ?? ''));
+
+                // Form text
                 update_option('brst_form_title', sanitize_text_field($_POST['brst_form_title'] ?? ''));
                 update_option('brst_form_description', sanitize_textarea_field($_POST['brst_form_description'] ?? ''));
                 update_option('brst_submit_button_text', sanitize_text_field($_POST['brst_submit_button_text'] ?? ''));

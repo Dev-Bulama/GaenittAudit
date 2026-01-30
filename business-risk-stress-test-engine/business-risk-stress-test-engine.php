@@ -118,6 +118,7 @@ final class Business_Risk_Stress_Test_Engine {
             require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-form-builder.php';
             require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-documentation.php';
             require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-questions.php';
+            require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-category-reports.php';
         }
     }
 
@@ -287,6 +288,8 @@ final class Business_Risk_Stress_Test_Engine {
                 'payment_success' => __('Payment successful!', 'brst-engine'),
                 'payment_failed' => __('Payment failed. Please try again.', 'brst-engine'),
                 'consent_required' => __('You must accept the Terms & Conditions and Privacy Policy to continue.', 'brst-engine'),
+                'email_capture_title' => get_option('brst_email_capture_title', __('Where do you want your full report delivered?', 'brst-engine')),
+                'email_capture_success' => get_option('brst_email_capture_success', __('Payment Successful!', 'brst-engine')),
             ),
         ));
     }

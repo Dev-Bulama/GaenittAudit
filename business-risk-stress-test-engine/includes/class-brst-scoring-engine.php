@@ -33,9 +33,9 @@ class BRST_Scoring_Engine {
     private $categories = array();
 
     /**
-     * Category display names
+     * Category display names (defaults)
      */
-    private $category_names = array(
+    private $default_category_names = array(
         'cash_tight' => 'Cash-Tight Operator',
         'revenue_concentrated' => 'Revenue-Concentrated Builder',
         'cost_locked' => 'Cost-Locked Business',
@@ -44,9 +44,15 @@ class BRST_Scoring_Engine {
     );
 
     /**
+     * Active category names (custom + defaults)
+     */
+    private $category_names = array();
+
+    /**
      * Constructor
      */
     public function __construct() {
+        $this->load_category_names();
         $this->build_categories_from_questions();
 
         /**
@@ -54,6 +60,18 @@ class BRST_Scoring_Engine {
          * Allows modification of category definitions
          */
         $this->categories = apply_filters('brst_scoring_categories', $this->categories);
+    }
+
+    /**
+     * Load category names from options (custom names override defaults)
+     */
+    private function load_category_names() {
+        $this->category_names = $this->default_category_names;
+
+        $custom_names = get_option('brst_category_names');
+        if (!empty($custom_names) && is_array($custom_names)) {
+            $this->category_names = array_merge($this->category_names, $custom_names);
+        }
     }
 
     /**

@@ -87,6 +87,16 @@ class BRST_Admin {
             array($this, 'render_questions')
         );
 
+        // Category Reports submenu
+        add_submenu_page(
+            'brst-dashboard',
+            __('Category Reports', 'brst-engine'),
+            __('Category Reports', 'brst-engine'),
+            'manage_options',
+            'brst-category-reports',
+            array($this, 'render_category_reports')
+        );
+
         // Settings submenu
         add_submenu_page(
             'brst-dashboard',
@@ -343,5 +353,13 @@ class BRST_Admin {
     public function render_settings() {
         $settings_handler = new BRST_Admin_Settings();
         $settings_handler->render();
+    }
+
+    /**
+     * Render category reports page
+     */
+    public function render_category_reports() {
+        $category_reports_handler = new BRST_Admin_Category_Reports();
+        $category_reports_handler->render();
     }
 }

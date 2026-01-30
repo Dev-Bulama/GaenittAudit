@@ -15,15 +15,26 @@ if (!defined('ABSPATH')) {
 class BRST_Admin_Questions {
 
     /**
-     * Scored categories
+     * Default scored categories
      */
-    private $scored_categories = array(
+    private $default_scored_categories = array(
         'cash_tight' => 'Cash-Tight Operator',
         'revenue_concentrated' => 'Revenue-Concentrated Builder',
         'cost_locked' => 'Cost-Locked Business',
         'owner_dependent' => 'Owner-Dependent Engine',
         'externally_exposed' => 'Externally Exposed Builder',
     );
+
+    /**
+     * Get scored categories (custom or default)
+     */
+    public function get_scored_categories() {
+        $custom = get_option('brst_category_names');
+        if (!empty($custom) && is_array($custom)) {
+            return array_merge($this->default_scored_categories, $custom);
+        }
+        return $this->default_scored_categories;
+    }
 
     /**
      * Render questions editor page
@@ -43,6 +54,7 @@ class BRST_Admin_Questions {
         }
 
         $questions = $this->get_questions();
+        $scored_categories = $this->get_scored_categories();
 
         // Group questions by category for display
         $grouped = array();
@@ -54,7 +66,7 @@ class BRST_Admin_Questions {
             $grouped[$cat][] = array_merge($q, array('original_index' => $index));
         }
 
-        $all_categories = array_merge($this->scored_categories, array('personalization' => 'Focus Area (Not Scored)'));
+        $all_categories = array_merge($scored_categories, array('personalization' => 'Focus Area (Not Scored)'));
         ?>
         <div class="wrap brst-admin-wrap brst-questions-editor">
             <h1><?php esc_html_e('Edit Questions', 'brst-engine'); ?></h1>
@@ -68,6 +80,36 @@ class BRST_Admin_Questions {
 
             <form method="post" id="brst-questions-form">
                 <?php wp_nonce_field('brst_save_questions', 'brst_questions_nonce'); ?>
+
+                <!-- Category Names Editor -->
+                <div class="brst-category-section" style="background: #fff; border: 1px solid #ccd0d4; border-radius: 4px; padding: 20px; margin: 20px 0;">
+                    <h2 style="margin-top: 0; color: #1d2327; border-bottom: 2px solid #0073aa; padding-bottom: 10px;">
+                        <?php esc_html_e('Category Names', 'brst-engine'); ?>
+                    </h2>
+                    <p class="description"><?php esc_html_e('Customize the display names for each risk category. Leave empty to use the default name.', 'brst-engine'); ?></p>
+
+                    <table class="form-table" style="margin: 0;">
+                        <?php foreach ($this->default_scored_categories as $key => $default_name):
+                            $current_name = $scored_categories[$key] ?? $default_name;
+                        ?>
+                        <tr>
+                            <th style="width: 200px;">
+                                <label for="category_name_<?php echo esc_attr($key); ?>">
+                                    <?php echo esc_html(ucwords(str_replace('_', ' ', $key))); ?>
+                                </label>
+                            </th>
+                            <td>
+                                <input type="text"
+                                       name="category_names[<?php echo esc_attr($key); ?>]"
+                                       id="category_name_<?php echo esc_attr($key); ?>"
+                                       value="<?php echo esc_attr($current_name); ?>"
+                                       class="regular-text"
+                                       placeholder="<?php echo esc_attr($default_name); ?>">
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </table>
+                </div>
 
                 <div id="brst-questions-container">
                     <?php
@@ -323,6 +365,18 @@ class BRST_Admin_Questions {
 
         // Save questions
         update_option('brst_custom_questions', $questions);
+
+        // Save category names
+        if (!empty($_POST['category_names']) && is_array($_POST['category_names'])) {
+            $category_names = array();
+            foreach ($_POST['category_names'] as $key => $value) {
+                $value = sanitize_text_field($value);
+                if (!empty(trim($value))) {
+                    $category_names[sanitize_key($key)] = $value;
+                }
+            }
+            update_option('brst_category_names', $category_names);
+        }
 
         // Save Q21 options
         if (!empty($_POST['q21_options']) && is_array($_POST['q21_options'])) {

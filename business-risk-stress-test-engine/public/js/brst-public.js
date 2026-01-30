@@ -471,12 +471,14 @@
         showEmailCapture: function(submissionId, paymentRef) {
             var container = $('.brst-payment-container').parent();
             var prefillEmail = this.paymentEmail || '';
+            var successText = brst_ajax.strings.email_capture_success || 'Payment Successful!';
+            var titleText = brst_ajax.strings.email_capture_title || 'Where do you want your full report delivered?';
 
             var html = '<div class="brst-email-capture-container">' +
                 '<div class="brst-email-capture-header">' +
                 '<div class="brst-success-icon">&#10003;</div>' +
-                '<h2>Payment Successful!</h2>' +
-                '<p>Where do you want your full report delivered?</p>' +
+                '<h2>' + successText + '</h2>' +
+                '<p>' + titleText + '</p>' +
                 '</div>' +
                 '<form id="brst-email-capture-form" class="brst-email-capture-form">' +
                 '<input type="hidden" name="submission_id" value="' + submissionId + '">' +
