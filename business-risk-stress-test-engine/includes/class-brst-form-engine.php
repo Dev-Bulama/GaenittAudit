@@ -56,7 +56,9 @@ class BRST_Form_Engine {
 
         // Group questions by category dynamically
         $category_groups = array();
-        $category_names = array(
+
+        // Default step titles
+        $default_step_titles = array(
             'cash_tight' => __('Cash Flow Assessment', 'brst-engine'),
             'revenue_concentrated' => __('Revenue Diversity', 'brst-engine'),
             'cost_locked' => __('Cost Structure', 'brst-engine'),
@@ -64,6 +66,17 @@ class BRST_Form_Engine {
             'externally_exposed' => __('External Exposure', 'brst-engine'),
             'personalization' => __('Your Focus Area', 'brst-engine'),
         );
+
+        // Get custom step titles from admin settings
+        $custom_step_titles = get_option('brst_step_titles', array());
+
+        // Merge custom titles with defaults (custom override defaults)
+        $category_names = array();
+        foreach ($default_step_titles as $key => $default_title) {
+            $custom_title = isset($custom_step_titles[$key]) ? trim($custom_step_titles[$key]) : '';
+            // Use custom title if set, otherwise use default (empty string means hide title)
+            $category_names[$key] = $custom_title !== '' ? $custom_title : $default_title;
+        }
 
         foreach ($questions as $index => $question) {
             $cat = $question['category'];

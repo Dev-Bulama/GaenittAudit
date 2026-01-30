@@ -172,7 +172,7 @@ class BRST_Mini_Report {
                     <span class="brst-score-value"><?php echo esc_html($mini_report['score_percentage']); ?>%</span>
                 </div>
 
-                <?php if (!empty($mini_report['category_scores']) && get_option('brst_show_category_scores', true)): ?>
+                <?php if (!empty($mini_report['category_scores']) && get_option('brst_show_category_scores', '1') === '1'): ?>
                 <div class="brst-category-scores">
                     <h4 class="brst-category-scores-title"><?php esc_html_e('Category Performance', 'brst-engine'); ?></h4>
                     <?php foreach ($mini_report['category_scores'] as $category_key => $category_data): ?>

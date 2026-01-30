@@ -779,6 +779,18 @@ class BRST_Payment_Engine {
         $amount = $this->get_payment_amount() / 100;
         $currency = $this->get_payment_currency();
 
+        // Get customizable text from settings
+        $unlock_title = get_option('brst_unlock_title', __('Unlock Your Full Report', 'brst-engine'));
+        $unlock_description = get_option('brst_unlock_description', __('Your full report includes detailed analysis, personalized recommendations, and actionable insights to help your business thrive.', 'brst-engine'));
+        $unlock_features_title = get_option('brst_unlock_features_title', __("What's Included", 'brst-engine'));
+        $unlock_features = get_option('brst_unlock_features', array(
+            __('Complete risk analysis across all business categories', 'brst-engine'),
+            __('Personalized recommendations based on your profile', 'brst-engine'),
+            __('Actionable steps to address identified risks', 'brst-engine'),
+            __('PDF report delivered to your email', 'brst-engine'),
+        ));
+        $payment_email_label = get_option('brst_payment_email_label', __('Email for payment receipt', 'brst-engine'));
+
         if (empty($available_gateways)) {
             return '<div class="brst-error">' . esc_html__('No payment methods are currently available. Please contact support.', 'brst-engine') . '</div>';
         }
@@ -787,21 +799,26 @@ class BRST_Payment_Engine {
         ?>
         <div class="brst-payment-container" data-submission-id="<?php echo esc_attr($submission_id); ?>">
             <div class="brst-payment-header">
-                <h2><?php esc_html_e('Unlock Your Full Report', 'brst-engine'); ?></h2>
+                <?php if (!empty($unlock_title)): ?>
+                <h2><?php echo esc_html($unlock_title); ?></h2>
+                <?php endif; ?>
+                <?php if (!empty($unlock_description)): ?>
                 <p class="brst-payment-description">
-                    <?php esc_html_e('Your full report includes detailed analysis, personalized recommendations, and actionable insights to help your business thrive.', 'brst-engine'); ?>
+                    <?php echo esc_html($unlock_description); ?>
                 </p>
+                <?php endif; ?>
             </div>
 
+            <?php if (!empty($unlock_features_title) && !empty($unlock_features)): ?>
             <div class="brst-payment-summary">
-                <h3><?php esc_html_e("What's Included", 'brst-engine'); ?></h3>
+                <h3><?php echo esc_html($unlock_features_title); ?></h3>
                 <ul>
-                    <li><?php esc_html_e('Complete risk analysis across all business categories', 'brst-engine'); ?></li>
-                    <li><?php esc_html_e('Personalized recommendations based on your profile', 'brst-engine'); ?></li>
-                    <li><?php esc_html_e('Actionable steps to address identified risks', 'brst-engine'); ?></li>
-                    <li><?php esc_html_e('PDF report delivered to your email', 'brst-engine'); ?></li>
+                    <?php foreach ($unlock_features as $feature): ?>
+                    <li><?php echo esc_html($feature); ?></li>
+                    <?php endforeach; ?>
                 </ul>
             </div>
+            <?php endif; ?>
 
             <div class="brst-payment-amount">
                 <span class="brst-currency"><?php echo esc_html($currency); ?></span>
@@ -814,7 +831,7 @@ class BRST_Payment_Engine {
 
                 <div class="brst-payment-email-field">
                     <label for="brst-payment-email" class="brst-field-label">
-                        <?php esc_html_e('Email for payment receipt', 'brst-engine'); ?>
+                        <?php echo esc_html($payment_email_label); ?>
                         <span class="brst-required">*</span>
                     </label>
                     <input type="email" id="brst-payment-email" name="payment_email" class="brst-input brst-email-input"

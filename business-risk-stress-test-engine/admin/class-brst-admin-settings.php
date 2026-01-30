@@ -314,6 +314,23 @@ class BRST_Admin_Settings {
      * Render form customization settings
      */
     private function render_form_settings() {
+        $default_step_titles = array(
+            'cash_tight' => __('Cash Flow Assessment', 'brst-engine'),
+            'revenue_concentrated' => __('Revenue Diversity', 'brst-engine'),
+            'cost_locked' => __('Cost Structure', 'brst-engine'),
+            'owner_dependent' => __('Business Dependency', 'brst-engine'),
+            'externally_exposed' => __('External Exposure', 'brst-engine'),
+            'personalization' => __('Your Focus Area', 'brst-engine'),
+        );
+        $step_titles = get_option('brst_step_titles', array());
+
+        $default_unlock_features = array(
+            __('Complete risk analysis across all business categories', 'brst-engine'),
+            __('Personalized recommendations based on your profile', 'brst-engine'),
+            __('Actionable steps to address identified risks', 'brst-engine'),
+            __('PDF report delivered to your email', 'brst-engine'),
+        );
+        $unlock_features = get_option('brst_unlock_features', $default_unlock_features);
         ?>
         <h2><?php esc_html_e('Form Customization', 'brst-engine'); ?></h2>
 
@@ -326,10 +343,87 @@ class BRST_Admin_Settings {
                 <td>
                     <label class="brst-toggle">
                         <input type="checkbox" name="brst_show_category_scores" id="brst_show_category_scores" value="1"
-                               <?php checked(get_option('brst_show_category_scores', true), true); ?>>
+                               <?php checked(get_option('brst_show_category_scores', '1'), '1'); ?>>
                         <span class="brst-toggle-slider"></span>
                     </label>
                     <span class="description"><?php esc_html_e('Display individual category performance percentages in the mini report.', 'brst-engine'); ?></span>
+                </td>
+            </tr>
+        </table>
+
+        <h3><?php esc_html_e('Form Step Titles', 'brst-engine'); ?></h3>
+        <p class="description"><?php esc_html_e('Customize the titles shown at the top of each form step. Leave empty to hide the title.', 'brst-engine'); ?></p>
+        <table class="form-table">
+            <?php foreach ($default_step_titles as $key => $default_title):
+                $current_title = isset($step_titles[$key]) ? $step_titles[$key] : $default_title;
+            ?>
+            <tr>
+                <th scope="row">
+                    <label for="step_title_<?php echo esc_attr($key); ?>"><?php echo esc_html(ucwords(str_replace('_', ' ', $key))); ?></label>
+                </th>
+                <td>
+                    <input type="text" name="brst_step_titles[<?php echo esc_attr($key); ?>]" id="step_title_<?php echo esc_attr($key); ?>"
+                           value="<?php echo esc_attr($current_title); ?>" class="regular-text"
+                           placeholder="<?php echo esc_attr($default_title); ?>">
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+
+        <h3><?php esc_html_e('Payment Page', 'brst-engine'); ?></h3>
+        <table class="form-table">
+            <tr>
+                <th scope="row">
+                    <label for="brst_unlock_title"><?php esc_html_e('Unlock Section Title', 'brst-engine'); ?></label>
+                </th>
+                <td>
+                    <input type="text" name="brst_unlock_title" id="brst_unlock_title"
+                           value="<?php echo esc_attr(get_option('brst_unlock_title', __('Unlock Your Full Report', 'brst-engine'))); ?>" class="large-text">
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">
+                    <label for="brst_unlock_description"><?php esc_html_e('Unlock Section Description', 'brst-engine'); ?></label>
+                </th>
+                <td>
+                    <textarea name="brst_unlock_description" id="brst_unlock_description" rows="2" class="large-text"><?php
+                        echo esc_textarea(get_option('brst_unlock_description', __('Your full report includes detailed analysis, personalized recommendations, and actionable insights to help your business thrive.', 'brst-engine')));
+                    ?></textarea>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">
+                    <label for="brst_unlock_features_title"><?php esc_html_e("What's Included Title", 'brst-engine'); ?></label>
+                </th>
+                <td>
+                    <input type="text" name="brst_unlock_features_title" id="brst_unlock_features_title"
+                           value="<?php echo esc_attr(get_option('brst_unlock_features_title', __("What's Included", 'brst-engine'))); ?>" class="regular-text">
+                    <p class="description"><?php esc_html_e('Leave empty to hide this section.', 'brst-engine'); ?></p>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">
+                    <label><?php esc_html_e('Features List', 'brst-engine'); ?></label>
+                </th>
+                <td>
+                    <?php for ($i = 0; $i < 6; $i++):
+                        $feature = isset($unlock_features[$i]) ? $unlock_features[$i] : '';
+                    ?>
+                    <input type="text" name="brst_unlock_features[]"
+                           value="<?php echo esc_attr($feature); ?>" class="large-text"
+                           placeholder="<?php echo $i < 4 ? esc_attr($default_unlock_features[$i]) : ''; ?>"
+                           style="margin-bottom: 8px;">
+                    <?php endfor; ?>
+                    <p class="description"><?php esc_html_e('Enter up to 6 features. Leave empty to skip.', 'brst-engine'); ?></p>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">
+                    <label for="brst_payment_email_label"><?php esc_html_e('Payment Email Field Label', 'brst-engine'); ?></label>
+                </th>
+                <td>
+                    <input type="text" name="brst_payment_email_label" id="brst_payment_email_label"
+                           value="<?php echo esc_attr(get_option('brst_payment_email_label', __('Email for payment receipt', 'brst-engine'))); ?>" class="large-text">
                 </td>
             </tr>
         </table>
@@ -572,8 +666,35 @@ class BRST_Admin_Settings {
                 break;
 
             case 'form':
-                // Results display
-                update_option('brst_show_category_scores', isset($_POST['brst_show_category_scores']) ? true : false);
+                // Results display - use '1' and '0' for reliable saving
+                update_option('brst_show_category_scores', isset($_POST['brst_show_category_scores']) ? '1' : '0');
+
+                // Step titles
+                if (!empty($_POST['brst_step_titles']) && is_array($_POST['brst_step_titles'])) {
+                    $step_titles = array();
+                    foreach ($_POST['brst_step_titles'] as $key => $value) {
+                        $step_titles[sanitize_key($key)] = sanitize_text_field($value);
+                    }
+                    update_option('brst_step_titles', $step_titles);
+                }
+
+                // Payment page / Unlock section
+                update_option('brst_unlock_title', sanitize_text_field($_POST['brst_unlock_title'] ?? ''));
+                update_option('brst_unlock_description', sanitize_textarea_field($_POST['brst_unlock_description'] ?? ''));
+                update_option('brst_unlock_features_title', sanitize_text_field($_POST['brst_unlock_features_title'] ?? ''));
+                update_option('brst_payment_email_label', sanitize_text_field($_POST['brst_payment_email_label'] ?? ''));
+
+                // Unlock features list
+                if (!empty($_POST['brst_unlock_features']) && is_array($_POST['brst_unlock_features'])) {
+                    $features = array();
+                    foreach ($_POST['brst_unlock_features'] as $feature) {
+                        $feature = sanitize_text_field($feature);
+                        if (!empty(trim($feature))) {
+                            $features[] = $feature;
+                        }
+                    }
+                    update_option('brst_unlock_features', $features);
+                }
 
                 // Email capture
                 update_option('brst_email_capture_title', sanitize_text_field($_POST['brst_email_capture_title'] ?? ''));
