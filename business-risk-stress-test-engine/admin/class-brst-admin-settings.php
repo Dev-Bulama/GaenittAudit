@@ -575,9 +575,43 @@ class BRST_Admin_Settings {
      */
     private function render_general_settings() {
         $pages = get_pages();
+        $logo_url = get_option('brst_logo_url', '');
         ?>
         <h2><?php esc_html_e('General Settings', 'brst-engine'); ?></h2>
 
+        <h3><?php esc_html_e('Branding', 'brst-engine'); ?></h3>
+        <table class="form-table">
+            <tr>
+                <th scope="row">
+                    <label for="brst_logo_url"><?php esc_html_e('Logo', 'brst-engine'); ?></label>
+                </th>
+                <td>
+                    <div style="display: flex; align-items: flex-start; gap: 15px;">
+                        <?php if ($logo_url): ?>
+                        <div id="brst-logo-preview" style="max-width: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                            <img src="<?php echo esc_url($logo_url); ?>" style="max-width: 100%; height: auto;">
+                        </div>
+                        <?php else: ?>
+                        <div id="brst-logo-preview" style="display: none; max-width: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                            <img src="" style="max-width: 100%; height: auto;">
+                        </div>
+                        <?php endif; ?>
+                        <div>
+                            <input type="hidden" name="brst_logo_url" id="brst_logo_url" value="<?php echo esc_attr($logo_url); ?>">
+                            <button type="button" class="button" id="brst-upload-logo"><?php esc_html_e('Upload Logo', 'brst-engine'); ?></button>
+                            <?php if ($logo_url): ?>
+                            <button type="button" class="button" id="brst-remove-logo" style="margin-left: 5px;"><?php esc_html_e('Remove', 'brst-engine'); ?></button>
+                            <?php else: ?>
+                            <button type="button" class="button" id="brst-remove-logo" style="margin-left: 5px; display: none;"><?php esc_html_e('Remove', 'brst-engine'); ?></button>
+                            <?php endif; ?>
+                            <p class="description"><?php esc_html_e('Logo will appear in email reports. Recommended size: 200px wide.', 'brst-engine'); ?></p>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <h3><?php esc_html_e('Legal Pages', 'brst-engine'); ?></h3>
         <table class="form-table">
             <tr>
                 <th scope="row">
@@ -610,6 +644,39 @@ class BRST_Admin_Settings {
                 </td>
             </tr>
         </table>
+
+        <script>
+        jQuery(document).ready(function($) {
+            // Media uploader for logo
+            var mediaUploader;
+            $('#brst-upload-logo').on('click', function(e) {
+                e.preventDefault();
+                if (mediaUploader) {
+                    mediaUploader.open();
+                    return;
+                }
+                mediaUploader = wp.media({
+                    title: '<?php esc_html_e('Select Logo', 'brst-engine'); ?>',
+                    button: { text: '<?php esc_html_e('Use as Logo', 'brst-engine'); ?>' },
+                    multiple: false
+                });
+                mediaUploader.on('select', function() {
+                    var attachment = mediaUploader.state().get('selection').first().toJSON();
+                    $('#brst_logo_url').val(attachment.url);
+                    $('#brst-logo-preview').show().find('img').attr('src', attachment.url);
+                    $('#brst-remove-logo').show();
+                });
+                mediaUploader.open();
+            });
+
+            $('#brst-remove-logo').on('click', function(e) {
+                e.preventDefault();
+                $('#brst_logo_url').val('');
+                $('#brst-logo-preview').hide().find('img').attr('src', '');
+                $(this).hide();
+            });
+        });
+        </script>
 
         <h3><?php esc_html_e('Shortcode Reference', 'brst-engine'); ?></h3>
         <table class="form-table">
@@ -711,6 +778,7 @@ class BRST_Admin_Settings {
                 break;
 
             case 'general':
+                update_option('brst_logo_url', esc_url_raw($_POST['brst_logo_url'] ?? ''));
                 update_option('brst_terms_page', intval($_POST['brst_terms_page'] ?? 0));
                 update_option('brst_privacy_page', intval($_POST['brst_privacy_page'] ?? 0));
                 break;

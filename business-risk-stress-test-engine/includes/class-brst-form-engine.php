@@ -49,77 +49,32 @@ class BRST_Form_Engine {
 
     /**
      * Get default questionnaire form schema
+     * Now creates ONE STEP PER QUESTION for better UX
      */
     public function get_default_questionnaire_schema() {
         $questions = $this->get_questions();
         $steps = array();
 
-        // Group questions by category dynamically
-        $category_groups = array();
-
-        // Default step titles
-        $default_step_titles = array(
-            'cash_tight' => __('Cash Flow Assessment', 'brst-engine'),
-            'revenue_concentrated' => __('Revenue Diversity', 'brst-engine'),
-            'cost_locked' => __('Cost Structure', 'brst-engine'),
-            'owner_dependent' => __('Business Dependency', 'brst-engine'),
-            'externally_exposed' => __('External Exposure', 'brst-engine'),
-            'personalization' => __('Your Focus Area', 'brst-engine'),
-        );
-
-        // Get custom step titles from admin settings
-        $custom_step_titles = get_option('brst_step_titles', array());
-
-        // Merge custom titles with defaults (custom override defaults)
-        $category_names = array();
-        foreach ($default_step_titles as $key => $default_title) {
-            $custom_title = isset($custom_step_titles[$key]) ? trim($custom_step_titles[$key]) : '';
-            // Use custom title if set, otherwise use default (empty string means hide title)
-            $category_names[$key] = $custom_title !== '' ? $custom_title : $default_title;
-        }
-
+        // Create one step per question (not per category)
         foreach ($questions as $index => $question) {
-            $cat = $question['category'];
-            if (!isset($category_groups[$cat])) {
-                $category_groups[$cat] = array();
-            }
-            $category_groups[$cat][] = array(
-                'index' => $index,
-                'question' => $question,
+            $q_num = $index + 1;
+
+            $field = array(
+                'id' => "q{$q_num}",
+                'type' => 'radio',
+                'label' => $question['text'],
+                'required' => true,
+                'options' => $this->get_question_options($q_num, $question),
+                'category' => $question['category'],
+                'scored' => $question['scored'],
             );
-        }
-
-        // Create one step per category
-        $step_count = 0;
-        foreach ($category_groups as $category_key => $cat_questions) {
-            $fields = array();
-            foreach ($cat_questions as $entry) {
-                $q_num = $entry['index'] + 1;
-                $question = $entry['question'];
-
-                $field = array(
-                    'id' => "q{$q_num}",
-                    'type' => 'radio',
-                    'label' => $question['text'],
-                    'required' => true,
-                    'options' => $this->get_question_options($q_num, $question),
-                    'category' => $question['category'],
-                    'scored' => $question['scored'],
-                );
-
-                $fields[] = $field;
-            }
-
-            $step_title = $category_names[$category_key]
-                ?? ucwords(str_replace('_', ' ', $category_key));
 
             $steps[] = array(
-                'id' => "step_{$step_count}",
-                'title' => $step_title,
-                'fields' => $fields,
+                'id' => "step_{$index}",
+                'title' => '', // No title for individual questions
+                'fields' => array($field),
+                'question_number' => $q_num,
             );
-
-            $step_count++;
         }
 
         // Get customizable settings from options
@@ -132,6 +87,7 @@ class BRST_Form_Engine {
             'title' => $form_title,
             'description' => $form_description,
             'multi_step' => true,
+            'one_question_per_page' => true,
             'steps' => $steps,
             'settings' => array(
                 'show_progress' => true,
@@ -139,6 +95,7 @@ class BRST_Form_Engine {
                 'submit_text' => $submit_text,
                 'redirect_after_submit' => false,
                 'show_results_on_screen' => true,
+                'auto_advance' => true,
             ),
         );
     }
@@ -368,17 +325,19 @@ class BRST_Form_Engine {
                         <div class="brst-progress-track">
                             <div class="brst-progress-fill" style="width: 0%"></div>
                         </div>
-                        <span class="brst-progress-text">Step 1 of <?php echo count($form_schema['steps']); ?></span>
+                        <!-- Progress bar only, no step counter text -->
                     </div>
                 <?php endif; ?>
 
                 <?php if ($form_schema['multi_step']): ?>
+                    <?php
+                    $total_steps = count($form_schema['steps']);
+                    $auto_advance = !empty($form_schema['settings']['auto_advance']);
+                    ?>
                     <?php foreach ($form_schema['steps'] as $step_index => $step): ?>
                         <div class="brst-form-step <?php echo $step_index === 0 ? 'active' : ''; ?>"
-                             data-step="<?php echo $step_index; ?>">
-                            <?php if (!empty($step['title'])): ?>
-                                <h3 class="brst-step-title"><?php echo esc_html($step['title']); ?></h3>
-                            <?php endif; ?>
+                             data-step="<?php echo $step_index; ?>"
+                             data-auto-advance="<?php echo $auto_advance ? '1' : '0'; ?>">
 
                             <?php foreach ($step['fields'] as $field): ?>
                                 <?php $this->render_field($field); ?>
@@ -391,7 +350,7 @@ class BRST_Form_Engine {
                                     </button>
                                 <?php endif; ?>
 
-                                <?php if ($step_index < count($form_schema['steps']) - 1): ?>
+                                <?php if ($step_index < $total_steps - 1): ?>
                                     <button type="button" class="brst-btn brst-btn-primary brst-next-step">
                                         <?php esc_html_e('Next', 'brst-engine'); ?>
                                     </button>

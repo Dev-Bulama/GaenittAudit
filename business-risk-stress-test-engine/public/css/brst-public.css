@@ -60,9 +60,9 @@
     transition: width 0.3s ease;
 }
 
+/* Progress text hidden - we only show the bar */
 .brst-progress-text {
-    font-size: 14px;
-    color: var(--brst-gray);
+    display: none;
 }
 
 /* Form Steps */
@@ -74,12 +74,20 @@
     display: block;
 }
 
+/* Step title - hidden when empty, clean look for one-question-per-page */
 .brst-step-title {
     color: var(--brst-secondary);
     font-size: 20px;
     margin-bottom: 25px;
     padding-bottom: 15px;
     border-bottom: 2px solid var(--brst-primary);
+}
+
+.brst-step-title:empty {
+    display: none;
+    margin: 0;
+    padding: 0;
+    border: none;
 }
 
 /* Fields */

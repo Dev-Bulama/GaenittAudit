@@ -98,21 +98,53 @@ class BRST_Profile_Engine {
     }
 
     /**
+     * Tie-breaker priority order (lower index = higher priority)
+     * When two or more categories have the same score, the one with higher priority wins.
+     */
+    private $priority_order = array(
+        'cash_tight',           // 1st priority - cash flow is most critical
+        'revenue_concentrated', // 2nd priority - revenue diversity
+        'owner_dependent',      // 3rd priority - business continuity
+        'cost_locked',          // 4th priority - cost flexibility
+        'externally_exposed',   // 5th priority - external factors
+    );
+
+    /**
      * Determine primary profile from category scores
+     *
+     * Tie-breaker Logic:
+     * When two or more categories have the same highest score, the system uses
+     * a priority ranking to determine the primary profile:
+     * 1. Cash-Tight Operator (cash_tight)
+     * 2. Revenue-Concentrated Builder (revenue_concentrated)
+     * 3. Owner-Dependent Engine (owner_dependent)
+     * 4. Cost-Locked Business (cost_locked)
+     * 5. Externally Exposed Builder (externally_exposed)
      *
      * @param array $category_scores Array of category scores
      * @return string Primary profile key
      */
     public function get_primary_profile($category_scores) {
         $highest_score = -1;
-        $primary_profile = null;
+        $tied_profiles = array();
 
+        // Find the highest score and all profiles with that score
         foreach ($category_scores as $key => $data) {
             $score = $data['score'] ?? 0;
             if ($score > $highest_score) {
                 $highest_score = $score;
-                $primary_profile = $key;
+                $tied_profiles = array($key);
+            } elseif ($score == $highest_score && $highest_score > -1) {
+                $tied_profiles[] = $key;
             }
+        }
+
+        // If only one profile has the highest score, return it
+        if (count($tied_profiles) === 1) {
+            $primary_profile = $tied_profiles[0];
+        } else {
+            // Tie-breaker: use priority order
+            $primary_profile = $this->resolve_tie($tied_profiles);
         }
 
         /**
@@ -123,7 +155,25 @@ class BRST_Profile_Engine {
     }
 
     /**
+     * Resolve tie between profiles using priority order
+     *
+     * @param array $tied_profiles Array of profile keys that have the same score
+     * @return string The winning profile key
+     */
+    private function resolve_tie($tied_profiles) {
+        foreach ($this->priority_order as $priority_profile) {
+            if (in_array($priority_profile, $tied_profiles)) {
+                return $priority_profile;
+            }
+        }
+        // Fallback to first tied profile if none in priority list
+        return $tied_profiles[0];
+    }
+
+    /**
      * Determine secondary profile from category scores
+     *
+     * Uses the same tie-breaker priority as primary profile.
      *
      * @param array $category_scores Array of category scores
      * @param string $primary_profile Primary profile key to exclude
@@ -131,7 +181,7 @@ class BRST_Profile_Engine {
      */
     public function get_secondary_profile($category_scores, $primary_profile) {
         $highest_score = -1;
-        $secondary_profile = null;
+        $tied_profiles = array();
 
         foreach ($category_scores as $key => $data) {
             if ($key === $primary_profile) {
@@ -141,9 +191,16 @@ class BRST_Profile_Engine {
             $score = $data['score'] ?? 0;
             if ($score > $highest_score) {
                 $highest_score = $score;
-                $secondary_profile = $key;
+                $tied_profiles = array($key);
+            } elseif ($score == $highest_score && $highest_score > -1) {
+                $tied_profiles[] = $key;
             }
         }
+
+        // Resolve ties using priority
+        $secondary_profile = count($tied_profiles) === 1
+            ? $tied_profiles[0]
+            : $this->resolve_tie($tied_profiles);
 
         /**
          * Filter: brst_secondary_profile

@@ -56,10 +56,25 @@
                 }
             });
 
-            // Radio change - auto advance visual feedback
+            // Radio change - visual feedback and AUTO-ADVANCE
             this.form.on('change', 'input[type="radio"]', function() {
-                $(this).closest('.brst-radio-group').find('.brst-radio-option').removeClass('selected');
-                $(this).closest('.brst-radio-option').addClass('selected');
+                var $radio = $(this);
+                var $step = $radio.closest('.brst-form-step');
+
+                // Visual feedback
+                $radio.closest('.brst-radio-group').find('.brst-radio-option').removeClass('selected');
+                $radio.closest('.brst-radio-option').addClass('selected');
+
+                // Auto-advance to next step after short delay (if enabled)
+                if ($step.data('auto-advance') === 1 || $step.data('auto-advance') === '1') {
+                    setTimeout(function() {
+                        // Check if this is the last step
+                        if (self.currentStep < self.totalSteps - 1) {
+                            self.goToStep(self.currentStep + 1);
+                        }
+                        // On last step, don't auto-submit - let user click submit
+                    }, 300);
+                }
             });
         },
 
@@ -83,12 +98,12 @@
         },
 
         /**
-         * Update progress bar
+         * Update progress bar (no step counter text)
          */
         updateProgress: function() {
             var progress = ((this.currentStep + 1) / this.totalSteps) * 100;
             this.form.find('.brst-progress-fill').css('width', progress + '%');
-            this.form.find('.brst-progress-text').text('Step ' + (this.currentStep + 1) + ' of ' + this.totalSteps);
+            // No step counter text - just progress bar
         },
 
         /**

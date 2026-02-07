@@ -85,12 +85,18 @@ class BRST_Email_Engine {
             'From: ' . $this->get_sender_name() . ' <' . $this->get_sender_email() . '>',
         );
 
-        // Prepare attachments
+        // Prepare attachments - prioritize category PDF from admin uploads
         $attachments = array();
-        if (file_exists($report_path)) {
+
+        // First, try to get category-specific PDF from admin-uploaded reports
+        $category_report = $this->get_category_report_pdf($submission->primary_profile);
+        if ($category_report && file_exists($category_report)) {
+            $attachments[] = $category_report;
+        } elseif (file_exists($report_path)) {
+            // Fall back to generated report
             $attachments[] = $report_path;
         } else {
-            // Try HTML version
+            // Try HTML version as last resort
             $html_path = str_replace('.pdf', '.html', $report_path);
             if (file_exists($html_path)) {
                 $attachments[] = $html_path;
@@ -279,6 +285,15 @@ class BRST_Email_Engine {
      */
     private function get_email_wrapper($content) {
         $site_name = get_bloginfo('name');
+        $logo_url = get_option('brst_logo_url', '');
+
+        // Build header with logo or site name
+        $header_content = '';
+        if (!empty($logo_url)) {
+            $header_content = '<img src="' . esc_url($logo_url) . '" alt="' . esc_attr($site_name) . '" style="max-width: 200px; height: auto;">';
+        } else {
+            $header_content = '<h1 style="color: #2c3e50; margin: 0;">' . esc_html($site_name) . '</h1>';
+        }
 
         return '
         <!DOCTYPE html>
@@ -290,7 +305,7 @@ class BRST_Email_Engine {
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background: #f8f9fa; padding: 20px; border-radius: 5px;">
                 <div style="text-align: center; margin-bottom: 20px;">
-                    <h1 style="color: #2c3e50; margin: 0;">' . esc_html($site_name) . '</h1>
+                    ' . $header_content . '
                 </div>
                 <div style="background: white; padding: 30px; border-radius: 5px;">
                     ' . $content . '
@@ -301,6 +316,28 @@ class BRST_Email_Engine {
             </div>
         </body>
         </html>';
+    }
+
+    /**
+     * Get category report PDF path from admin uploads
+     *
+     * @param string $profile_key The profile/category key (e.g., 'cash_tight')
+     * @return string|null Full path to PDF file or null if not found
+     */
+    private function get_category_report_pdf($profile_key) {
+        $reports = get_option('brst_category_reports', array());
+
+        // Try category-specific report first
+        if (!empty($reports[$profile_key]['path']) && file_exists($reports[$profile_key]['path'])) {
+            return $reports[$profile_key]['path'];
+        }
+
+        // Fall back to default report
+        if (!empty($reports['_default']['path']) && file_exists($reports['_default']['path'])) {
+            return $reports['_default']['path'];
+        }
+
+        return null;
     }
 
     /**
