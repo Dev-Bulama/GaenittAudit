@@ -234,6 +234,22 @@ class BRST_Database {
 
         $templates = array();
 
+        // Add "All YES" template (no risk detected)
+        $templates[] = array(
+            'template_key' => 'mini_all_yes',
+            'template_type' => 'mini_report',
+            'title' => 'All YES - Strong Foundations',
+            'content' => json_encode(array(
+                'profile_name' => 'Strong Foundations',
+                'alignment' => 'excellent',
+                'summary' => '<p>Your responses indicate a very high level of coverage across the areas assessed.</p><p>Based on how you answered, the business appears to be operating with strong foundations in cash flow management, revenue diversity, cost structure flexibility, operational resilience, and external risk protection.</p><p>This is a positive signal that your business has the right infrastructure and practices in place to navigate most common stress points.</p><p>If anything changes or you\'d like a deeper review in the future, feel free to return.</p>',
+                'cta_text' => '',
+                'hide_cta' => 1,
+            )),
+            'variables' => json_encode(array()),
+            'status' => 'active',
+        );
+
         foreach ($profiles as $key => $name) {
             // Aligned version
             $templates[] = array(
@@ -414,6 +430,42 @@ class BRST_Database {
         if (version_compare($current_version, '1.0.1', '<')) {
             self::upgrade_to_101();
             update_option('brst_db_version', '1.0.1');
+        }
+
+        // Version 1.0.2: Add "All YES" template
+        if (version_compare($current_version, '1.0.2', '<')) {
+            self::upgrade_to_102();
+            update_option('brst_db_version', '1.0.2');
+        }
+    }
+
+    /**
+     * Upgrade to version 1.0.2 - Add "All YES" template
+     */
+    private static function upgrade_to_102() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'brst_report_templates';
+
+        // Check if "All YES" template already exists
+        $exists = $wpdb->get_var(
+            $wpdb->prepare("SELECT COUNT(*) FROM $table WHERE template_key = %s", 'mini_all_yes')
+        );
+
+        if (!$exists) {
+            $wpdb->insert($table, array(
+                'template_key' => 'mini_all_yes',
+                'template_type' => 'mini_report',
+                'title' => 'All YES - Strong Foundations',
+                'content' => json_encode(array(
+                    'profile_name' => 'Strong Foundations',
+                    'alignment' => 'excellent',
+                    'summary' => '<p>Your responses indicate a very high level of coverage across the areas assessed.</p><p>Based on how you answered, the business appears to be operating with strong foundations in cash flow management, revenue diversity, cost structure flexibility, operational resilience, and external risk protection.</p><p>This is a positive signal that your business has the right infrastructure and practices in place to navigate most common stress points.</p><p>If anything changes or you\'d like a deeper review in the future, feel free to return.</p>',
+                    'cta_text' => '',
+                    'hide_cta' => 1,
+                )),
+                'variables' => json_encode(array()),
+                'status' => 'active',
+            ));
         }
     }
 

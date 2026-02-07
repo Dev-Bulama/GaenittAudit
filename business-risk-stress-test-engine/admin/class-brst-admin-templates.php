@@ -244,8 +244,20 @@ class BRST_Admin_Templates {
                             <label for="summary"><?php esc_html_e('Summary Text', 'brst-engine'); ?></label>
                         </th>
                         <td>
-                            <textarea name="content[summary]" id="summary" rows="5" class="large-text"><?php echo esc_textarea($content['summary'] ?? ''); ?></textarea>
-                            <p class="description"><?php esc_html_e('Brief summary shown in the mini report.', 'brst-engine'); ?></p>
+                            <?php
+                            wp_editor(
+                                $content['summary'] ?? '',
+                                'summary',
+                                array(
+                                    'textarea_name' => 'content[summary]',
+                                    'textarea_rows' => 8,
+                                    'media_buttons' => false,
+                                    'teeny' => false,
+                                    'quicktags' => true,
+                                )
+                            );
+                            ?>
+                            <p class="description"><?php esc_html_e('Brief summary shown in the mini report. You can use HTML for styling.', 'brst-engine'); ?></p>
                         </td>
                     </tr>
                     <tr>
@@ -255,6 +267,18 @@ class BRST_Admin_Templates {
                         <td>
                             <input type="text" name="content[cta_text]" id="cta_text"
                                    value="<?php echo esc_attr($content['cta_text'] ?? 'Unlock Full Report'); ?>" class="regular-text">
+                            <p class="description"><?php esc_html_e('Leave empty to hide the CTA button.', 'brst-engine'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="hide_cta"><?php esc_html_e('Hide CTA Button', 'brst-engine'); ?></label>
+                        </th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="content[hide_cta]" id="hide_cta" value="1" <?php checked(!empty($content['hide_cta'])); ?>>
+                                <?php esc_html_e('Hide the "Unlock Full Report" button for this template', 'brst-engine'); ?>
+                            </label>
                         </td>
                     </tr>
                 </table>
@@ -340,18 +364,19 @@ class BRST_Admin_Templates {
             $content['body'] = wp_kses_post($_POST['content']['body'] ?? '');
         } elseif ($template_type === 'mini_report') {
             $content['profile_name'] = sanitize_text_field($_POST['content']['profile_name'] ?? '');
-            $content['summary'] = sanitize_textarea_field($_POST['content']['summary'] ?? '');
+            $content['summary'] = wp_kses_post($_POST['content']['summary'] ?? '');
             $content['cta_text'] = sanitize_text_field($_POST['content']['cta_text'] ?? '');
+            $content['hide_cta'] = !empty($_POST['content']['hide_cta']) ? 1 : 0;
             $content['alignment'] = sanitize_text_field($_POST['content']['alignment'] ?? '');
         } elseif ($template_type === 'full_report') {
             $content['profile_name'] = sanitize_text_field($_POST['content']['profile_name'] ?? '');
-            $content['description'] = sanitize_textarea_field($_POST['content']['description'] ?? '');
+            $content['description'] = wp_kses_post($_POST['content']['description'] ?? '');
             $content['report_type'] = sanitize_text_field($_POST['content']['report_type'] ?? 'standalone');
             $content['sections'] = array();
 
             if (!empty($_POST['content']['sections']) && is_array($_POST['content']['sections'])) {
                 foreach ($_POST['content']['sections'] as $key => $value) {
-                    $content['sections'][sanitize_key($key)] = sanitize_textarea_field($value);
+                    $content['sections'][sanitize_key($key)] = wp_kses_post($value);
                 }
             }
         }

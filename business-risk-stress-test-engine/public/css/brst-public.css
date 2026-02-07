@@ -337,6 +337,25 @@
     color: var(--brst-warning);
 }
 
+.brst-alignment-indicator.excellent {
+    background: #d4edda;
+    color: #155724;
+    border: 2px solid var(--brst-success);
+}
+
+/* All YES report styling */
+.brst-all-yes-report {
+    border-color: var(--brst-success);
+}
+
+.brst-all-yes-report .brst-profile-badge {
+    background: var(--brst-success);
+}
+
+.brst-all-yes-report .brst-profile-badge.all_yes {
+    background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+}
+
 .brst-mini-report-summary {
     font-size: 16px;
     line-height: 1.7;

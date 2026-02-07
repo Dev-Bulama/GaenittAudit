@@ -97,6 +97,16 @@ class BRST_Admin {
             array($this, 'render_category_reports')
         );
 
+        // User Feedbacks submenu
+        add_submenu_page(
+            'brst-dashboard',
+            __('User Feedbacks', 'brst-engine'),
+            __('User Feedbacks', 'brst-engine'),
+            'manage_options',
+            'brst-feedbacks',
+            array($this, 'render_feedbacks')
+        );
+
         // Settings submenu
         add_submenu_page(
             'brst-dashboard',
@@ -361,5 +371,13 @@ class BRST_Admin {
     public function render_category_reports() {
         $category_reports_handler = new BRST_Admin_Category_Reports();
         $category_reports_handler->render();
+    }
+
+    /**
+     * Render user feedbacks page
+     */
+    public function render_feedbacks() {
+        $feedbacks_handler = new BRST_Admin_Feedbacks();
+        $feedbacks_handler->render();
     }
 }

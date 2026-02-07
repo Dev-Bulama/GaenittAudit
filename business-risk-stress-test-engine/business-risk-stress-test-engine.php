@@ -26,7 +26,7 @@ define('BRST_VERSION', '1.0.0');
 define('BRST_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BRST_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('BRST_PLUGIN_BASENAME', plugin_basename(__FILE__));
-define('BRST_DB_VERSION', '1.0.1');
+define('BRST_DB_VERSION', '1.0.2');
 
 /**
  * Main Plugin Class
@@ -119,6 +119,7 @@ final class Business_Risk_Stress_Test_Engine {
             require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-documentation.php';
             require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-questions.php';
             require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-category-reports.php';
+            require_once BRST_PLUGIN_DIR . 'admin/class-brst-admin-feedbacks.php';
         }
     }
 
