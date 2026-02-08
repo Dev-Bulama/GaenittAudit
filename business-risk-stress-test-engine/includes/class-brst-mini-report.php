@@ -230,6 +230,8 @@ class BRST_Mini_Report {
 
         $is_all_yes = !empty($mini_report['is_all_yes']);
         $hide_cta = !empty($mini_report['hide_cta']);
+        $show_alignment = get_option('brst_show_alignment_indicator', '1') === '1';
+        $show_current_focus = get_option('brst_show_current_focus', '1') === '1';
 
         ob_start();
         ?>
@@ -248,21 +250,23 @@ class BRST_Mini_Report {
             </div>
 
             <div class="brst-mini-report-content">
-                <?php if ($is_all_yes): ?>
-                    <div class="brst-alignment-indicator excellent">
-                        <span class="brst-alignment-icon">&#10003;</span>
-                        <span class="brst-alignment-text"><?php esc_html_e('Excellent Coverage', 'brst-engine'); ?></span>
-                    </div>
-                <?php else: ?>
-                    <div class="brst-alignment-indicator <?php echo esc_attr($mini_report['alignment_status']); ?>">
-                        <?php if ($mini_report['is_aligned']): ?>
+                <?php if ($show_alignment): ?>
+                    <?php if ($is_all_yes): ?>
+                        <div class="brst-alignment-indicator excellent">
                             <span class="brst-alignment-icon">&#10003;</span>
-                            <span class="brst-alignment-text"><?php esc_html_e('Focus Aligned', 'brst-engine'); ?></span>
-                        <?php else: ?>
-                            <span class="brst-alignment-icon">&#8596;</span>
-                            <span class="brst-alignment-text"><?php esc_html_e('Focus Misaligned', 'brst-engine'); ?></span>
-                        <?php endif; ?>
-                    </div>
+                            <span class="brst-alignment-text"><?php esc_html_e('Excellent Coverage', 'brst-engine'); ?></span>
+                        </div>
+                    <?php else: ?>
+                        <div class="brst-alignment-indicator <?php echo esc_attr($mini_report['alignment_status']); ?>">
+                            <?php if ($mini_report['is_aligned']): ?>
+                                <span class="brst-alignment-icon">&#10003;</span>
+                                <span class="brst-alignment-text"><?php esc_html_e('Focus Aligned', 'brst-engine'); ?></span>
+                            <?php else: ?>
+                                <span class="brst-alignment-icon">&#8596;</span>
+                                <span class="brst-alignment-text"><?php esc_html_e('Focus Misaligned', 'brst-engine'); ?></span>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <div class="brst-mini-report-summary">
@@ -293,7 +297,7 @@ class BRST_Mini_Report {
                 </div>
                 <?php endif; ?>
 
-                <?php if (!$is_all_yes && !empty($mini_report['focus_area'])): ?>
+                <?php if ($show_current_focus && !$is_all_yes && !empty($mini_report['focus_area'])): ?>
                 <div class="brst-focus-display">
                     <span class="brst-focus-label"><?php esc_html_e('Your Current Focus:', 'brst-engine'); ?></span>
                     <span class="brst-focus-value"><?php echo esc_html($mini_report['focus_area']); ?></span>

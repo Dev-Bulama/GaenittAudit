@@ -349,6 +349,32 @@ class BRST_Admin_Settings {
                     <span class="description"><?php esc_html_e('Display individual category performance percentages in the mini report.', 'brst-engine'); ?></span>
                 </td>
             </tr>
+            <tr>
+                <th scope="row">
+                    <label for="brst_show_alignment_indicator"><?php esc_html_e('Show Focus Alignment', 'brst-engine'); ?></label>
+                </th>
+                <td>
+                    <label class="brst-toggle">
+                        <input type="checkbox" name="brst_show_alignment_indicator" id="brst_show_alignment_indicator" value="1"
+                               <?php checked(get_option('brst_show_alignment_indicator', '1'), '1'); ?>>
+                        <span class="brst-toggle-slider"></span>
+                    </label>
+                    <span class="description"><?php esc_html_e('Display the "Focus Aligned/Not Aligned" indicator box in the mini report.', 'brst-engine'); ?></span>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">
+                    <label for="brst_show_current_focus"><?php esc_html_e('Show Current Focus', 'brst-engine'); ?></label>
+                </th>
+                <td>
+                    <label class="brst-toggle">
+                        <input type="checkbox" name="brst_show_current_focus" id="brst_show_current_focus" value="1"
+                               <?php checked(get_option('brst_show_current_focus', '1'), '1'); ?>>
+                        <span class="brst-toggle-slider"></span>
+                    </label>
+                    <span class="description"><?php esc_html_e('Display the "Your Current Focus" section in the mini report.', 'brst-engine'); ?></span>
+                </td>
+            </tr>
         </table>
 
         <h3><?php esc_html_e('Form Step Titles', 'brst-engine'); ?></h3>
@@ -735,6 +761,8 @@ class BRST_Admin_Settings {
             case 'form':
                 // Results display - use '1' and '0' for reliable saving
                 update_option('brst_show_category_scores', isset($_POST['brst_show_category_scores']) ? '1' : '0');
+                update_option('brst_show_alignment_indicator', isset($_POST['brst_show_alignment_indicator']) ? '1' : '0');
+                update_option('brst_show_current_focus', isset($_POST['brst_show_current_focus']) ? '1' : '0');
 
                 // Step titles
                 if (!empty($_POST['brst_step_titles']) && is_array($_POST['brst_step_titles'])) {
